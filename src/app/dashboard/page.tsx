@@ -230,20 +230,16 @@ function GenerateReplySection({
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const res = await fetch("/api/generate-reply", {
+      const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reviewText: review.review_text,
-          reviewerName: review.reviewer_name,
-          rating: review.rating,
-          toneDescription: business.tone_description,
-          exampleResponses: business.example_responses,
-        }),
+        body: JSON.stringify({ action: "generate" }),
       });
       const data = await res.json();
-      setGeneratedText(data.reply);
-      setEditText(data.reply);
+      if (data.reply) {
+        setGeneratedText(data.reply.generated_text);
+        setEditText(data.reply.generated_text);
+      }
     } catch {
       setGeneratedText(
         "Sorry, we couldn't generate a reply right now. Please try again or write your own."
@@ -251,6 +247,19 @@ function GenerateReplySection({
       setEditText("");
     }
     setGenerating(false);
+  }
+
+  async function handlePublish(text: string) {
+    try {
+      await fetch(`/api/reviews/${review.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "publish", replyText: text }),
+      });
+      onPublish(text);
+    } catch {
+      // show error
+    }
   }
 
   return (
@@ -286,7 +295,7 @@ function GenerateReplySection({
             rows={3}
           />
           {editText && (
-            <Button size="sm" onClick={() => onPublish(editText)}>
+            <Button size="sm" onClick={() => handlePublish(editText)}>
               <Send className="h-3 w-3 mr-1" />
               Publish Reply
             </Button>
