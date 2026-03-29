@@ -1,3 +1,6 @@
+import { getGoogleClientId, getGoogleClientSecret, getAppUrl } from "./env";
+import { GOOGLE_TOKEN_REFRESH_BUFFER_MS } from "./constants";
+
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
@@ -5,15 +8,14 @@ const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
 ];
 
+function getRedirectUri(): string {
+  return `${getAppUrl()}/api/google/callback`;
+}
+
 export function getGoogleAuthUrl(state: string): string {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-  if (!clientId) throw new Error("GOOGLE_CLIENT_ID not configured");
-
   const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: `${appUrl}/api/google/callback`,
+    client_id: getGoogleClientId(),
+    redirect_uri: getRedirectUri(),
     response_type: "code",
     scope: SCOPES.join(" "),
     access_type: "offline",
@@ -25,22 +27,14 @@ export function getGoogleAuthUrl(state: string): string {
 }
 
 export async function exchangeCodeForTokens(code: string) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-  if (!clientId || !clientSecret) {
-    throw new Error("Google OAuth credentials not configured");
-  }
-
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: `${appUrl}/api/google/callback`,
+      client_id: getGoogleClientId(),
+      client_secret: getGoogleClientSecret(),
+      redirect_uri: getRedirectUri(),
       grant_type: "authorization_code",
     }),
   });
@@ -59,19 +53,12 @@ export async function exchangeCodeForTokens(code: string) {
 }
 
 export async function refreshAccessToken(refreshToken: string) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error("Google OAuth credentials not configured");
-  }
-
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: getGoogleClientId(),
+      client_secret: getGoogleClientSecret(),
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
@@ -101,16 +88,13 @@ export async function getValidAccessToken(
     throw new Error("Business not connected to Google");
   }
 
-  // Check if token is still valid (with 5 min buffer)
   if (business.google_token_expires_at) {
     const expiresAt = new Date(business.google_token_expires_at);
-    const bufferMs = 5 * 60 * 1000;
-    if (expiresAt.getTime() - bufferMs > Date.now()) {
+    if (expiresAt.getTime() - GOOGLE_TOKEN_REFRESH_BUFFER_MS > Date.now()) {
       return business.google_access_token;
     }
   }
 
-  // Token expired, refresh it
   const tokens = await refreshAccessToken(business.google_refresh_token);
   const newExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
