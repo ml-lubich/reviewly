@@ -12,30 +12,12 @@ import {
   LogOut,
   Menu,
   X,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mockBusinesses } from "@/lib/mock-data";
-import { useState } from "react";
-
-const activeBusiness = mockBusinesses[0];
-
-const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Settings",
-    href: `/dashboard/${activeBusiness.id}/settings`,
-    icon: Settings,
-  },
-  {
-    label: "Analytics",
-    href: `/dashboard/${activeBusiness.id}/analytics`,
-    icon: BarChart3,
-  },
-];
+import { createClient } from "@/lib/supabase";
+import type { Business } from "@/lib/types";
+import { useState, useEffect } from "react";
 
 export default function DashboardLayout({
   children,
@@ -44,6 +26,42 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
+
+  useEffect(() => {
+    async function loadBusinesses() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+          .from("businesses")
+          .select("*")
+          .eq("owner_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (data && data.length > 0) {
+          setBusinesses(data);
+          setActiveBusiness(data[0]);
+        }
+      } catch {
+        // Supabase not configured yet
+      }
+    }
+    loadBusinesses();
+  }, []);
+
+  const navItems = [
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    ...(activeBusiness
+      ? [
+          { label: "Settings", href: `/dashboard/${activeBusiness.id}/settings`, icon: Settings },
+          { label: "Analytics", href: `/dashboard/${activeBusiness.id}/analytics`, icon: BarChart3 },
+        ]
+      : []),
+  ];
 
   return (
     <div className="flex min-h-screen">
@@ -76,13 +94,23 @@ export default function DashboardLayout({
 
         {/* Business selector */}
         <div className="border-b border-border p-4">
-          <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-sm font-medium truncate">{activeBusiness.name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {activeBusiness.totalReviews} reviews &middot;{" "}
-              {activeBusiness.averageRating} avg
-            </p>
-          </div>
+          {activeBusiness ? (
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-sm font-medium truncate">{activeBusiness.business_name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {activeBusiness.google_place_id ? "Connected" : "Not connected"}
+              </p>
+            </div>
+          ) : (
+            <Link href="/dashboard">
+              <div className="rounded-lg bg-muted/50 p-3 hover:bg-muted transition-colors cursor-pointer">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Connect a business
+                </p>
+              </div>
+            </Link>
+          )}
         </div>
 
         <nav className="flex-1 space-y-1 p-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +18,10 @@ import {
   Check,
   Loader2,
   X,
+  Plus,
 } from "lucide-react";
-import { mockBusinesses, getBusinessReviews, type Review } from "@/lib/mock-data";
-
-const business = mockBusinesses[0];
-const allReviews = getBusinessReviews(business.id);
+import { createClient } from "@/lib/supabase";
+import type { Business, Review, BusinessStats } from "@/lib/types";
 
 function StatCard({
   icon: Icon,
@@ -60,14 +59,16 @@ function StatCard({
 
 function ReviewCard({
   review,
+  business,
   onGenerateReply,
 }: {
   review: Review;
+  business: Business;
   onGenerateReply: (review: Review) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingReply, setEditingReply] = useState(false);
-  const [replyText, setReplyText] = useState(review.reply?.finalText || "");
+  const [replyText, setReplyText] = useState(review.reply?.final_text || "");
   const [published, setPublished] = useState(review.reply?.status === "published");
 
   const statusConfig = {
@@ -86,15 +87,15 @@ function ReviewCard({
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
           <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-500/20 text-sm font-semibold text-primary">
-            {review.reviewerName[0]}
+            {review.reviewer_name[0]}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="font-medium">{review.reviewerName}</span>
+              <span className="font-medium">{review.reviewer_name}</span>
               <StarRating rating={review.rating} />
               <Badge variant={status.variant}>{status.label}</Badge>
               <span className="text-xs text-muted-foreground ml-auto">
-                {new Date(review.reviewDate).toLocaleDateString("en-US", {
+                {new Date(review.review_date).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
@@ -102,7 +103,7 @@ function ReviewCard({
               </span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              {review.reviewText}
+              {review.review_text}
             </p>
 
             {/* Reply section */}
@@ -117,7 +118,7 @@ function ReviewCard({
                     </Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">{replyText || review.reply.finalText}</p>
+                <p className="text-sm text-muted-foreground">{replyText || review.reply.final_text}</p>
                 {!published && (
                   <div className="flex gap-2 mt-3">
                     <Button
@@ -125,7 +126,7 @@ function ReviewCard({
                       variant="outline"
                       onClick={() => {
                         setEditingReply(true);
-                        setReplyText(review.reply!.finalText);
+                        setReplyText(review.reply!.final_text || "");
                       }}
                     >
                       <Pencil className="h-3 w-3 mr-1" />
@@ -195,6 +196,7 @@ function ReviewCard({
             {expanded && !review.reply && (
               <GenerateReplySection
                 review={review}
+                business={business}
                 onClose={() => setExpanded(false)}
                 onPublish={(text) => {
                   setReplyText(text);
@@ -212,10 +214,12 @@ function ReviewCard({
 
 function GenerateReplySection({
   review,
+  business,
   onClose,
   onPublish,
 }: {
   review: Review;
+  business: Business;
   onClose: () => void;
   onPublish: (text: string) => void;
 }) {
@@ -230,11 +234,11 @@ function GenerateReplySection({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reviewText: review.reviewText,
-          reviewerName: review.reviewerName,
+          reviewText: review.review_text,
+          reviewerName: review.reviewer_name,
           rating: review.rating,
-          toneDescription: business.toneDescription,
-          exampleResponses: business.exampleResponses,
+          toneDescription: business.tone_description,
+          exampleResponses: business.example_responses,
         }),
       });
       const data = await res.json();
@@ -323,24 +327,104 @@ function GenerateReplySection({
 export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [stats, setStats] = useState<BusinessStats>({ total_reviews: 0, pending_replies: 0, replied_count: 0, average_rating: 0 });
+  const [loading, setLoading] = useState(true);
 
-  const filteredReviews = allReviews.filter((r) => {
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoading(false); return; }
+
+        const { data: businesses } = await supabase
+          .from("businesses")
+          .select("*")
+          .eq("owner_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (!businesses || businesses.length === 0) { setLoading(false); return; }
+
+        const biz = businesses[0];
+        setBusiness(biz);
+
+        const { data: revs } = await supabase
+          .from("reviews")
+          .select("*, reply:replies(*)")
+          .eq("business_id", biz.id)
+          .order("review_date", { ascending: false });
+
+        const mappedReviews = (revs || []).map((r: Record<string, unknown>) => ({
+          ...r,
+          reply: Array.isArray(r.reply) && r.reply.length > 0 ? r.reply[0] : null,
+        })) as Review[];
+
+        setReviews(mappedReviews);
+
+        const total = mappedReviews.length;
+        const pending = mappedReviews.filter((r) => r.status === "pending").length;
+        const replied = mappedReviews.filter(
+          (r) => r.status === "auto_replied" || r.status === "manually_replied"
+        ).length;
+        const avg = total > 0
+          ? Math.round((mappedReviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10
+          : 0;
+
+        setStats({ total_reviews: total, pending_replies: pending, replied_count: replied, average_rating: avg });
+      } catch {
+        // Supabase not configured
+      }
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const filteredReviews = reviews.filter((r) => {
     if (filterStatus !== "all" && r.status !== filterStatus) return false;
     if (filterRating !== "all" && r.rating !== Number(filterRating)) return false;
     return true;
   });
 
-  const pending = allReviews.filter((r) => r.status === "pending").length;
-  const replied = allReviews.filter(
-    (r) => r.status === "auto_replied" || r.status === "manually_replied"
-  ).length;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!business) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Get started by connecting your business</p>
+        </div>
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-lg font-semibold mb-2">No business connected</h2>
+            <p className="text-muted-foreground mb-4">
+              Connect your Google Business Profile to start managing reviews with AI.
+            </p>
+            <Button onClick={() => window.location.href = "/api/google/connect"}>
+              Connect Google Business
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
-          Manage reviews for {business.name}
+          Manage reviews for {business.business_name}
         </p>
       </div>
 
@@ -349,25 +433,23 @@ export default function DashboardPage() {
         <StatCard
           icon={MessageSquareText}
           label="Total Reviews"
-          value={business.totalReviews.toString()}
-          trend="+12 this month"
+          value={stats.total_reviews.toString()}
         />
         <StatCard
           icon={AlertCircle}
           label="Pending Reply"
-          value={pending.toString()}
+          value={stats.pending_replies.toString()}
         />
         <StatCard
           icon={Check}
           label="Replied"
-          value={replied.toString()}
-          trend="67% reply rate"
+          value={stats.replied_count.toString()}
+          trend={stats.total_reviews > 0 ? `${Math.round((stats.replied_count / stats.total_reviews) * 100)}% reply rate` : undefined}
         />
         <StatCard
           icon={Clock}
-          label="Avg Response Time"
-          value="2.4h"
-          trend="1.2h faster than avg"
+          label="Avg Rating"
+          value={stats.average_rating.toString()}
         />
       </div>
 
@@ -411,6 +493,7 @@ export default function DashboardPage() {
             <ReviewCard
               key={review.id}
               review={review}
+              business={business!}
               onGenerateReply={() => {}}
             />
           ))

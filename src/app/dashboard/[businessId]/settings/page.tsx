@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { mockBusinesses } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase";
+import type { Business } from "@/lib/types";
 import {
   Save,
   Plus,
@@ -16,9 +18,8 @@ import {
   MessageSquareText,
   Zap,
   Volume2,
+  Loader2,
 } from "lucide-react";
-
-const business = mockBusinesses[0];
 
 const tonePresets = [
   { label: "Friendly", description: "Warm, casual, and approachable" },
@@ -28,16 +29,76 @@ const tonePresets = [
 ];
 
 export default function SettingsPage() {
-  const [toneDescription, setToneDescription] = useState(business.toneDescription);
-  const [autoReply, setAutoReply] = useState(business.autoReplyEnabled);
-  const [examples, setExamples] = useState<string[]>(business.exampleResponses);
+  const params = useParams();
+  const businessId = params.businessId as string;
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [toneDescription, setToneDescription] = useState("");
+  const [autoReply, setAutoReply] = useState(false);
+  const [examples, setExamples] = useState<string[]>([]);
   const [newExample, setNewExample] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [negativeStrategy, setNegativeStrategy] = useState("apologize_resolve");
 
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    async function loadBusiness() {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("businesses")
+          .select("*")
+          .eq("id", businessId)
+          .single();
+
+        if (data) {
+          setBusiness(data);
+          setToneDescription(data.tone_description || "");
+          setAutoReply(data.auto_reply_enabled);
+          setExamples(data.example_responses || []);
+          setNegativeStrategy(data.negative_review_strategy || "apologize_resolve");
+        }
+      } catch {
+        // Supabase not configured
+      }
+      setLoading(false);
+    }
+    loadBusiness();
+  }, [businessId]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      await supabase
+        .from("businesses")
+        .update({
+          tone_description: toneDescription,
+          auto_reply_enabled: autoReply,
+          example_responses: examples,
+          negative_review_strategy: negativeStrategy,
+        })
+        .eq("id", businessId);
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      // handle error
+    }
+    setSaving(false);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!business) {
+    return <p className="text-muted-foreground py-8">Business not found.</p>;
   }
 
   function addExample() {
@@ -61,7 +122,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Configure how Reviewly responds to reviews for {business.name}
+          Configure how Reviewly responds to reviews for {business.business_name}
         </p>
       </div>
 
@@ -200,54 +261,58 @@ export default function SettingsPage() {
           {[
             {
               label: "Apologize & offer resolution",
+              value: "apologize_resolve",
               desc: "Express sincere apology and invite the reviewer to reach out directly",
-              active: true,
             },
             {
               label: "Acknowledge & redirect",
+              value: "acknowledge_redirect",
               desc: "Thank for feedback, acknowledge concern, redirect to private channel",
-              active: false,
             },
             {
               label: "Flag for manual review",
+              value: "flag_manual",
               desc: "Don't auto-reply to negative reviews; flag them for your attention",
-              active: false,
             },
-          ].map((strategy) => (
-            <div
-              key={strategy.label}
-              className={`rounded-lg border p-4 cursor-pointer transition-colors ${
-                strategy.active
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/30"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <div
-                  className={`h-4 w-4 rounded-full border-2 ${
-                    strategy.active ? "border-primary bg-primary" : "border-muted-foreground"
-                  }`}
-                >
-                  {strategy.active && (
-                    <div className="h-full w-full rounded-full bg-primary flex items-center justify-center">
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
-                    </div>
-                  )}
+          ].map((strategy) => {
+            const isActive = negativeStrategy === strategy.value;
+            return (
+              <div
+                key={strategy.value}
+                onClick={() => setNegativeStrategy(strategy.value)}
+                className={`rounded-lg border p-4 cursor-pointer transition-colors ${
+                  isActive
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/30"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`h-4 w-4 rounded-full border-2 ${
+                      isActive ? "border-primary bg-primary" : "border-muted-foreground"
+                    }`}
+                  >
+                    {isActive && (
+                      <div className="h-full w-full rounded-full bg-primary flex items-center justify-center">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium">{strategy.label}</span>
+                  {isActive && <Badge variant="secondary" className="text-xs">Active</Badge>}
                 </div>
-                <span className="text-sm font-medium">{strategy.label}</span>
-                {strategy.active && <Badge variant="secondary" className="text-xs">Active</Badge>}
+                <p className="text-xs text-muted-foreground mt-1.5 ml-6">{strategy.desc}</p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1.5 ml-6">{strategy.desc}</p>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 
       {/* Save button */}
       <div className="flex items-center gap-3">
-        <Button onClick={handleSave} className="shadow-lg shadow-primary/20">
-          <Save className="h-4 w-4 mr-1" />
-          {saved ? "Saved!" : "Save Settings"}
+        <Button onClick={handleSave} disabled={saving} className="shadow-lg shadow-primary/20">
+          {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+          {saved ? "Saved!" : saving ? "Saving..." : "Save Settings"}
         </Button>
         {saved && (
           <span className="text-sm text-emerald-600 dark:text-emerald-400">
