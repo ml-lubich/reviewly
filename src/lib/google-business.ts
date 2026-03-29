@@ -4,6 +4,9 @@ import { GOOGLE_REVIEWS_PAGE_SIZE } from "./constants";
 import type { Business } from "./types";
 
 const GBP_API = "https://mybusiness.googleapis.com/v4";
+const RATE_LIMIT_STATUS = 429;
+const RATE_LIMIT_RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 2;
 
 interface GoogleReview {
   reviewId: string;
@@ -94,7 +97,7 @@ async function fetchReviewsPage(
   url.searchParams.set("pageSize", GOOGLE_REVIEWS_PAGE_SIZE);
   if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchWithRateLimitRetry(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
@@ -108,6 +111,26 @@ async function fetchReviewsPage(
     reviews: data.reviews || [],
     nextPageToken: data.nextPageToken,
   };
+}
+
+async function fetchWithRateLimitRetry(
+  url: string,
+  init: RequestInit,
+  retries = 0
+): Promise<Response> {
+  const res = await fetch(url, init);
+
+  if (res.status === RATE_LIMIT_STATUS && retries < MAX_RETRIES) {
+    const retryAfter = res.headers.get("Retry-After");
+    const delayMs = retryAfter
+      ? parseInt(retryAfter, 10) * 1000
+      : RATE_LIMIT_RETRY_DELAY_MS * (retries + 1);
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return fetchWithRateLimitRetry(url, init, retries + 1);
+  }
+
+  return res;
 }
 
 async function upsertGoogleReview(
@@ -181,7 +204,7 @@ export async function postReplyToGoogle(
 
   const url = `${GBP_API}/${accountId}/${locationId}/reviews/${googleReviewId}/reply`;
 
-  const res = await fetch(url, {
+  const res = await fetchWithRateLimitRetry(url, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${accessToken}`,
