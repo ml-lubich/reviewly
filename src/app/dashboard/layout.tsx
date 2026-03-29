@@ -28,13 +28,16 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
+  const [userInitial, setUserInitial] = useState("U");
 
   useEffect(() => {
-    async function loadBusinesses() {
+    async function loadData() {
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+
+        setUserInitial(user.user_metadata?.full_name?.[0] || user.email?.[0]?.toUpperCase() || "U");
 
         const { data } = await supabase
           .from("businesses")
@@ -50,7 +53,7 @@ export default function DashboardLayout({
         // Supabase not configured yet
       }
     }
-    loadBusinesses();
+    loadData();
   }, []);
 
   const navItems = [
@@ -139,12 +142,12 @@ export default function DashboardLayout({
         </nav>
 
         <div className="border-t border-border p-4">
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground">
+          <form action="/api/auth/signout" method="POST">
+            <Button type="submit" variant="ghost" size="sm" className="w-full justify-start text-muted-foreground">
               <LogOut className="h-4 w-4 mr-2" />
               Sign out
             </Button>
-          </Link>
+          </form>
         </div>
       </aside>
 
@@ -161,7 +164,7 @@ export default function DashboardLayout({
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-              J
+              {userInitial}
             </div>
           </div>
         </header>
