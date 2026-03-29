@@ -19,6 +19,7 @@ import {
   Loader2,
   X,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import type { Business, Review, BusinessStats } from "@/lib/types";
@@ -70,6 +71,38 @@ function ReviewCard({
   const [editingReply, setEditingReply] = useState(false);
   const [replyText, setReplyText] = useState(review.reply?.final_text || "");
   const [published, setPublished] = useState(review.reply?.status === "published");
+  const [publishing, setPublishing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function handlePublishReply() {
+    setPublishing(true);
+    try {
+      await fetch(`/api/reviews/${review.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "publish", replyText }),
+      });
+      setPublished(true);
+    } catch {
+      // handle error
+    }
+    setPublishing(false);
+  }
+
+  async function handleSaveReply() {
+    setSaving(true);
+    try {
+      await fetch(`/api/reviews/${review.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save", replyText }),
+      });
+      setEditingReply(false);
+    } catch {
+      // handle error
+    }
+    setSaving(false);
+  }
 
   const statusConfig = {
     pending: { label: "Pending", variant: "warning" as const },
@@ -134,10 +167,11 @@ function ReviewCard({
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => setPublished(true)}
+                      onClick={handlePublishReply}
+                      disabled={publishing}
                     >
-                      <Send className="h-3 w-3 mr-1" />
-                      Publish
+                      {publishing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                      {publishing ? "Publishing..." : "Publish"}
                     </Button>
                   </div>
                 )}
@@ -156,9 +190,10 @@ function ReviewCard({
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() => setEditingReply(false)}
+                    onClick={handleSaveReply}
+                    disabled={saving}
                   >
-                    <Check className="h-3 w-3 mr-1" />
+                    {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
                     Save
                   </Button>
                   <Button
@@ -318,7 +353,7 @@ function GenerateReplySection({
             rows={4}
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => onPublish(editText)}>
+            <Button size="sm" onClick={() => handlePublish(editText)}>
               <Send className="h-3 w-3 mr-1" />
               Publish
             </Button>
@@ -340,6 +375,45 @@ export default function DashboardPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<BusinessStats>({ total_reviews: 0, pending_replies: 0, replied_count: 0, average_rating: 0 });
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  async function syncReviews() {
+    if (!business) return;
+    setSyncing(true);
+    try {
+      await fetch("/api/reviews/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: business.id }),
+      });
+      // Reload reviews
+      const supabase = createClient();
+      const { data: revs } = await supabase
+        .from("reviews")
+        .select("*, reply:replies(*)")
+        .eq("business_id", business.id)
+        .order("review_date", { ascending: false });
+
+      const mappedReviews = (revs || []).map((r: Record<string, unknown>) => ({
+        ...r,
+        reply: Array.isArray(r.reply) && r.reply.length > 0 ? r.reply[0] : null,
+      })) as Review[];
+      setReviews(mappedReviews);
+
+      const total = mappedReviews.length;
+      const pending = mappedReviews.filter((r) => r.status === "pending").length;
+      const replied = mappedReviews.filter(
+        (r) => r.status === "auto_replied" || r.status === "manually_replied"
+      ).length;
+      const avg = total > 0
+        ? Math.round((mappedReviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10
+        : 0;
+      setStats({ total_reviews: total, pending_replies: pending, replied_count: replied, average_rating: avg });
+    } catch {
+      // handle error
+    }
+    setSyncing(false);
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -389,7 +463,34 @@ export default function DashboardPage() {
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime subscription for new reviews
+  useEffect(() => {
+    if (!business) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("reviews-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "reviews", filter: `business_id=eq.${business.id}` },
+        (payload) => {
+          const newReview = { ...payload.new, reply: null } as Review;
+          setReviews((prev) => [newReview, ...prev]);
+          setStats((prev) => ({
+            ...prev,
+            total_reviews: prev.total_reviews + 1,
+            pending_replies: prev.pending_replies + 1,
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [business]);
 
   const filteredReviews = reviews.filter((r) => {
     if (filterStatus !== "all" && r.status !== filterStatus) return false;
@@ -430,11 +531,17 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage reviews for {business.business_name}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage reviews for {business.business_name}
+          </p>
+        </div>
+        <Button onClick={syncReviews} disabled={syncing} variant="outline" size="sm">
+          <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Syncing..." : "Sync Reviews"}
+        </Button>
       </div>
 
       {/* Stats */}
