@@ -22,6 +22,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { calculateBusinessStats } from "@/lib/data";
 import type { Business, Review, BusinessStats } from "@/lib/types";
 
 function StatCard({
@@ -58,14 +59,19 @@ function StatCard({
   );
 }
 
+const STATUS_CONFIG = {
+  pending: { label: "Pending", variant: "warning" as const },
+  auto_replied: { label: "Auto-replied", variant: "success" as const },
+  manually_replied: { label: "Replied", variant: "success" as const },
+  skipped: { label: "Skipped", variant: "secondary" as const },
+};
+
 function ReviewCard({
   review,
   business,
-  onGenerateReply,
 }: {
   review: Review;
   business: Business;
-  onGenerateReply: (review: Review) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingReply, setEditingReply] = useState(false);
@@ -73,50 +79,46 @@ function ReviewCard({
   const [published, setPublished] = useState(review.reply?.status === "published");
   const [publishing, setPublishing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handlePublishReply() {
     setPublishing(true);
+    setError(null);
     try {
-      await fetch(`/api/reviews/${review.id}/reply`, {
+      const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "publish", replyText }),
       });
+      if (!res.ok) throw new Error("Failed to publish reply");
       setPublished(true);
-    } catch {
-      // handle error
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to publish");
     }
     setPublishing(false);
   }
 
   async function handleSaveReply() {
     setSaving(true);
+    setError(null);
     try {
-      await fetch(`/api/reviews/${review.id}/reply`, {
+      const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "save", replyText }),
       });
+      if (!res.ok) throw new Error("Failed to save reply");
       setEditingReply(false);
-    } catch {
-      // handle error
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
     }
     setSaving(false);
   }
 
-  const statusConfig = {
-    pending: { label: "Pending", variant: "warning" as const },
-    auto_replied: { label: "Auto-replied", variant: "success" as const },
-    manually_replied: { label: "Replied", variant: "success" as const },
-    skipped: { label: "Skipped", variant: "secondary" as const },
-  };
-
-  const status = statusConfig[review.status];
+  const status = STATUS_CONFIG[review.status];
 
   return (
-    <Card
-      className={`transition-all ${expanded ? "ring-1 ring-primary/20" : "hover:border-border"}`}
-    >
+    <Card className={`transition-all ${expanded ? "ring-1 ring-primary/20" : "hover:border-border"}`}>
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
           <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-500/20 text-sm font-semibold text-primary">
@@ -139,46 +141,26 @@ function ReviewCard({
               {review.review_text}
             </p>
 
-            {/* Reply section */}
-            {review.reply && !editingReply && (
-              <div className="mt-3 rounded-lg bg-muted/50 border border-border/50 p-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <MessageSquareText className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-medium">Reply</span>
-                  {published && (
-                    <Badge variant="success" className="text-[10px]">
-                      Published
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">{replyText || review.reply.final_text}</p>
-                {!published && (
-                  <div className="flex gap-2 mt-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingReply(true);
-                        setReplyText(review.reply!.final_text || "");
-                      }}
-                    >
-                      <Pencil className="h-3 w-3 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handlePublishReply}
-                      disabled={publishing}
-                    >
-                      {publishing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
-                      {publishing ? "Publishing..." : "Publish"}
-                    </Button>
-                  </div>
-                )}
+            {error && (
+              <div className="mt-2 text-sm text-destructive flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {error}
               </div>
             )}
 
-            {/* Editing reply */}
+            {review.reply && !editingReply && (
+              <ReplyDisplay
+                replyText={replyText || review.reply.final_text || ""}
+                published={published}
+                publishing={publishing}
+                onEdit={() => {
+                  setEditingReply(true);
+                  setReplyText(review.reply!.final_text || "");
+                }}
+                onPublish={handlePublishReply}
+              />
+            )}
+
             {editingReply && (
               <div className="mt-3">
                 <Textarea
@@ -188,35 +170,20 @@ function ReviewCard({
                   className="mb-2"
                 />
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleSaveReply}
-                    disabled={saving}
-                  >
+                  <Button size="sm" onClick={handleSaveReply} disabled={saving}>
                     {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
                     Save
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setEditingReply(false)}
-                  >
+                  <Button size="sm" variant="ghost" onClick={() => setEditingReply(false)}>
                     Cancel
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Actions for pending reviews */}
             {review.status === "pending" && !review.reply && !expanded && (
               <div className="flex gap-2 mt-3">
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setExpanded(true);
-                    onGenerateReply(review);
-                  }}
-                >
+                <Button size="sm" onClick={() => setExpanded(true)}>
                   <Sparkles className="h-3 w-3 mr-1" />
                   Generate AI Reply
                 </Button>
@@ -227,7 +194,6 @@ function ReviewCard({
               </div>
             )}
 
-            {/* AI generation in progress / manual write */}
             {expanded && !review.reply && (
               <GenerateReplySection
                 review={review}
@@ -247,6 +213,45 @@ function ReviewCard({
   );
 }
 
+function ReplyDisplay({
+  replyText,
+  published,
+  publishing,
+  onEdit,
+  onPublish,
+}: {
+  replyText: string;
+  published: boolean;
+  publishing: boolean;
+  onEdit: () => void;
+  onPublish: () => void;
+}) {
+  return (
+    <div className="mt-3 rounded-lg bg-muted/50 border border-border/50 p-3">
+      <div className="flex items-center gap-2 mb-1.5">
+        <MessageSquareText className="h-3.5 w-3.5 text-primary" />
+        <span className="text-xs font-medium">Reply</span>
+        {published && (
+          <Badge variant="success" className="text-[10px]">Published</Badge>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground">{replyText}</p>
+      {!published && (
+        <div className="flex gap-2 mt-3">
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            <Pencil className="h-3 w-3 mr-1" />
+            Edit
+          </Button>
+          <Button size="sm" onClick={onPublish} disabled={publishing}>
+            {publishing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+            {publishing ? "Publishing..." : "Publish"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GenerateReplySection({
   review,
   business,
@@ -261,9 +266,11 @@ function GenerateReplySection({
   const [generating, setGenerating] = useState(false);
   const [generatedText, setGeneratedText] = useState("");
   const [editText, setEditText] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
     setGenerating(true);
+    setError(null);
     try {
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
@@ -271,29 +278,29 @@ function GenerateReplySection({
         body: JSON.stringify({ action: "generate" }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Generation failed");
       if (data.reply) {
         setGeneratedText(data.reply.generated_text);
         setEditText(data.reply.generated_text);
       }
-    } catch {
-      setGeneratedText(
-        "Sorry, we couldn't generate a reply right now. Please try again or write your own."
-      );
-      setEditText("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate reply");
     }
     setGenerating(false);
   }
 
   async function handlePublish(text: string) {
+    setError(null);
     try {
-      await fetch(`/api/reviews/${review.id}/reply`, {
+      const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "publish", replyText: text }),
       });
+      if (!res.ok) throw new Error("Failed to publish reply");
       onPublish(text);
-    } catch {
-      // show error
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to publish");
     }
   }
 
@@ -308,6 +315,13 @@ function GenerateReplySection({
           <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
         </button>
       </div>
+
+      {error && (
+        <div className="mb-3 text-sm text-destructive flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          {error}
+        </div>
+      )}
 
       {!generatedText && !generating && (
         <div className="space-y-3">
@@ -368,49 +382,53 @@ function GenerateReplySection({
   );
 }
 
+const EMPTY_STATS: BusinessStats = { total_reviews: 0, pending_replies: 0, replied_count: 0, average_rating: 0 };
+
+function mapReviewsFromSupabase(revs: Record<string, unknown>[]): Review[] {
+  return revs.map((r) => ({
+    ...r,
+    reply: Array.isArray(r.reply) && r.reply.length > 0 ? r.reply[0] : null,
+  })) as Review[];
+}
+
+async function fetchReviewsForBusiness(supabase: ReturnType<typeof createClient>, businessId: string): Promise<Review[]> {
+  const { data: revs } = await supabase
+    .from("reviews")
+    .select("*, reply:replies(*)")
+    .eq("business_id", businessId)
+    .order("review_date", { ascending: false });
+
+  return mapReviewsFromSupabase(revs || []);
+}
+
 export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [stats, setStats] = useState<BusinessStats>({ total_reviews: 0, pending_replies: 0, replied_count: 0, average_rating: 0 });
+  const [stats, setStats] = useState<BusinessStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   async function syncReviews() {
     if (!business) return;
     setSyncing(true);
+    setSyncError(null);
     try {
-      await fetch("/api/reviews/sync", {
+      const res = await fetch("/api/reviews/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId: business.id }),
       });
-      // Reload reviews
+      if (!res.ok) throw new Error("Sync failed");
+
       const supabase = createClient();
-      const { data: revs } = await supabase
-        .from("reviews")
-        .select("*, reply:replies(*)")
-        .eq("business_id", business.id)
-        .order("review_date", { ascending: false });
-
-      const mappedReviews = (revs || []).map((r: Record<string, unknown>) => ({
-        ...r,
-        reply: Array.isArray(r.reply) && r.reply.length > 0 ? r.reply[0] : null,
-      })) as Review[];
+      const mappedReviews = await fetchReviewsForBusiness(supabase, business.id);
       setReviews(mappedReviews);
-
-      const total = mappedReviews.length;
-      const pending = mappedReviews.filter((r) => r.status === "pending").length;
-      const replied = mappedReviews.filter(
-        (r) => r.status === "auto_replied" || r.status === "manually_replied"
-      ).length;
-      const avg = total > 0
-        ? Math.round((mappedReviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10
-        : 0;
-      setStats({ total_reviews: total, pending_replies: pending, replied_count: replied, average_rating: avg });
-    } catch {
-      // handle error
+      setStats(calculateBusinessStats(mappedReviews));
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : "Sync failed");
     }
     setSyncing(false);
   }
@@ -434,38 +452,17 @@ export default function DashboardPage() {
         const biz = businesses[0];
         setBusiness(biz);
 
-        const { data: revs } = await supabase
-          .from("reviews")
-          .select("*, reply:replies(*)")
-          .eq("business_id", biz.id)
-          .order("review_date", { ascending: false });
-
-        const mappedReviews = (revs || []).map((r: Record<string, unknown>) => ({
-          ...r,
-          reply: Array.isArray(r.reply) && r.reply.length > 0 ? r.reply[0] : null,
-        })) as Review[];
-
+        const mappedReviews = await fetchReviewsForBusiness(supabase, biz.id);
         setReviews(mappedReviews);
-
-        const total = mappedReviews.length;
-        const pending = mappedReviews.filter((r) => r.status === "pending").length;
-        const replied = mappedReviews.filter(
-          (r) => r.status === "auto_replied" || r.status === "manually_replied"
-        ).length;
-        const avg = total > 0
-          ? Math.round((mappedReviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10
-          : 0;
-
-        setStats({ total_reviews: total, pending_replies: pending, replied_count: replied, average_rating: avg });
-      } catch {
-        // Supabase not configured
+        setStats(calculateBusinessStats(mappedReviews));
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
       }
       setLoading(false);
     }
     loadData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Realtime subscription for new reviews
   useEffect(() => {
     if (!business) return;
 
@@ -544,32 +541,25 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Stats */}
+      {syncError && (
+        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {syncError}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={MessageSquareText}
-          label="Total Reviews"
-          value={stats.total_reviews.toString()}
-        />
-        <StatCard
-          icon={AlertCircle}
-          label="Pending Reply"
-          value={stats.pending_replies.toString()}
-        />
+        <StatCard icon={MessageSquareText} label="Total Reviews" value={stats.total_reviews.toString()} />
+        <StatCard icon={AlertCircle} label="Pending Reply" value={stats.pending_replies.toString()} />
         <StatCard
           icon={Check}
           label="Replied"
           value={stats.replied_count.toString()}
           trend={stats.total_reviews > 0 ? `${Math.round((stats.replied_count / stats.total_reviews) * 100)}% reply rate` : undefined}
         />
-        <StatCard
-          icon={Clock}
-          label="Avg Rating"
-          value={stats.average_rating.toString()}
-        />
+        <StatCard icon={Clock} label="Avg Rating" value={stats.average_rating.toString()} />
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -595,7 +585,6 @@ export default function DashboardPage() {
         </CardHeader>
       </Card>
 
-      {/* Review list */}
       <div className="space-y-3">
         {filteredReviews.length === 0 ? (
           <Card>
@@ -606,12 +595,7 @@ export default function DashboardPage() {
           </Card>
         ) : (
           filteredReviews.map((review) => (
-            <ReviewCard
-              key={review.id}
-              review={review}
-              business={business!}
-              onGenerateReply={() => {}}
-            />
+            <ReviewCard key={review.id} review={review} business={business} />
           ))
         )}
       </div>

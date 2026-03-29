@@ -90,6 +90,7 @@ export default function AnalyticsPage() {
   const businessId = params.businessId as string;
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadAnalytics() {
@@ -145,8 +146,9 @@ export default function AnalyticsPage() {
             negative: Math.round((negative / total) * 100),
           },
         });
-      } catch {
-        // Supabase not configured
+      } catch (err) {
+        console.error("Failed to load analytics:", err);
+        setError("Failed to load analytics data");
       }
       setLoading(false);
     }
@@ -157,6 +159,17 @@ export default function AnalyticsPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Analytics</h1>
+          <p className="text-destructive mt-1">{error}</p>
+        </div>
       </div>
     );
   }

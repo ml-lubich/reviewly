@@ -49,8 +49,8 @@ export default function DashboardLayout({
           setBusinesses(data);
           setActiveBusiness(data[0]);
         }
-      } catch {
-        // Supabase not configured yet
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
       }
     }
     loadData();

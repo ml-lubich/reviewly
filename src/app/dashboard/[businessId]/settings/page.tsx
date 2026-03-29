@@ -41,6 +41,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [negativeStrategy, setNegativeStrategy] = useState("apologize_resolve");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadBusiness() {
@@ -59,8 +61,9 @@ export default function SettingsPage() {
           setExamples(data.example_responses || []);
           setNegativeStrategy(data.negative_review_strategy || "apologize_resolve");
         }
-      } catch {
-        // Supabase not configured
+      } catch (err) {
+        console.error("Failed to load business settings:", err);
+        setLoadError("Failed to load settings");
       }
       setLoading(false);
     }
@@ -83,8 +86,9 @@ export default function SettingsPage() {
 
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
-      // handle error
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+      setSaveError("Failed to save settings. Please try again.");
     }
     setSaving(false);
   }
@@ -95,6 +99,10 @@ export default function SettingsPage() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (loadError) {
+    return <p className="text-destructive py-8">{loadError}</p>;
   }
 
   if (!business) {
@@ -318,6 +326,9 @@ export default function SettingsPage() {
           <span className="text-sm text-emerald-600 dark:text-emerald-400">
             Settings saved successfully
           </span>
+        )}
+        {saveError && (
+          <span className="text-sm text-destructive">{saveError}</span>
         )}
       </div>
     </div>
