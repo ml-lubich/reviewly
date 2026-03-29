@@ -1,0 +1,144 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { cn } from "@/lib/utils";
+import {
+  Sparkles,
+  LayoutDashboard,
+  Settings,
+  BarChart3,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { mockBusinesses } from "@/lib/mock-data";
+import { useState } from "react";
+
+const activeBusiness = mockBusinesses[0];
+
+const navItems = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "Settings",
+    href: `/dashboard/${activeBusiness.id}/settings`,
+    icon: Settings,
+  },
+  {
+    label: "Analytics",
+    href: `/dashboard/${activeBusiness.id}/analytics`,
+    icon: BarChart3,
+  },
+];
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform lg:relative lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <div className="flex h-16 items-center justify-between border-b border-border px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+              <Sparkles className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <span className="font-bold">Reviewly</span>
+          </Link>
+          <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Business selector */}
+        <div className="border-b border-border p-4">
+          <div className="rounded-lg bg-muted/50 p-3">
+            <p className="text-sm font-medium truncate">{activeBusiness.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {activeBusiness.totalReviews} reviews &middot;{" "}
+              {activeBusiness.averageRating} avg
+            </p>
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-1 p-4">
+          {navItems.map((item) => {
+            const isActive =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-border p-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign out
+            </Button>
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 min-w-0">
+        <header className="flex h-16 items-center justify-between border-b border-border px-6">
+          <button
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="hidden lg:block" />
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+              J
+            </div>
+          </div>
+        </header>
+        <div className="p-6 md:p-8 max-w-6xl">{children}</div>
+      </main>
+    </div>
+  );
+}
