@@ -15,6 +15,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { createClient } from "@/lib/supabase";
 import type { Business } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -168,7 +169,9 @@ export default function DashboardLayout({
             </div>
           </div>
         </header>
-        <div className="p-6 md:p-8 max-w-6xl">{children}</div>
+        <div className="p-6 md:p-8 max-w-6xl">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </div>
       </main>
     </div>
   );
