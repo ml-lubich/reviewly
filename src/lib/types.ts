@@ -18,6 +18,7 @@ export interface Business {
 
 export type ReviewStatus = "pending" | "auto_replied" | "manually_replied" | "skipped";
 export type ReplyStatus = "draft" | "approved" | "published";
+export type SubscriptionTier = "free" | "starter" | "professional" | "enterprise";
 
 export interface Review {
   id: string;
@@ -49,6 +50,20 @@ export interface UserSettings {
   user_id: string;
   default_tone: string;
   notifications_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  tier: SubscriptionTier;
+  status: string;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
   created_at: string;
   updated_at: string;
 }

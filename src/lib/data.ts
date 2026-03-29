@@ -1,5 +1,12 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import type { Business, Review, Reply, BusinessStats } from "./types";
+import type { Business, Review, Reply, BusinessStats, Subscription } from "./types";
+import {
+  REVIEW_STATUS_PENDING,
+  REVIEW_STATUS_AUTO_REPLIED,
+  REVIEW_STATUS_MANUALLY_REPLIED,
+  POSITIVE_RATING_THRESHOLD,
+  NEUTRAL_RATING,
+} from "./constants";
 
 export async function getBusinessesForUser(
   supabase: SupabaseClient,
@@ -70,6 +77,24 @@ export async function getReviewById(
   return { ...data, reply: data.reply?.[0] || null };
 }
 
+export function calculateBusinessStats(reviews: { rating: number; status: string }[]): BusinessStats {
+  const total = reviews.length;
+  const pending = reviews.filter((r) => r.status === REVIEW_STATUS_PENDING).length;
+  const replied = reviews.filter(
+    (r) => r.status === REVIEW_STATUS_AUTO_REPLIED || r.status === REVIEW_STATUS_MANUALLY_REPLIED
+  ).length;
+  const avgRating = total > 0
+    ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / total) * 10) / 10
+    : 0;
+
+  return {
+    total_reviews: total,
+    pending_replies: pending,
+    replied_count: replied,
+    average_rating: avgRating,
+  };
+}
+
 export async function getBusinessStats(
   supabase: SupabaseClient,
   businessId: string
@@ -83,21 +108,7 @@ export async function getBusinessStats(
     return { total_reviews: 0, pending_replies: 0, replied_count: 0, average_rating: 0 };
   }
 
-  const total = reviews.length;
-  const pending = reviews.filter((r) => r.status === "pending").length;
-  const replied = reviews.filter(
-    (r) => r.status === "auto_replied" || r.status === "manually_replied"
-  ).length;
-  const avgRating = total > 0
-    ? reviews.reduce((sum, r) => sum + r.rating, 0) / total
-    : 0;
-
-  return {
-    total_reviews: total,
-    pending_replies: pending,
-    replied_count: replied,
-    average_rating: Math.round(avgRating * 10) / 10,
-  };
+  return calculateBusinessStats(reviews);
 }
 
 export async function createReply(
@@ -166,6 +177,20 @@ export async function updateBusiness(
   return data;
 }
 
+export async function getSubscriptionForUser(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Subscription | null> {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
 export async function getAnalyticsData(
   supabase: SupabaseClient,
   businessId: string
@@ -183,17 +208,15 @@ export async function getAnalyticsData(
     : 0;
 
   const replied = reviews.filter(
-    (r) => r.status === "auto_replied" || r.status === "manually_replied"
+    (r) => r.status === REVIEW_STATUS_AUTO_REPLIED || r.status === REVIEW_STATUS_MANUALLY_REPLIED
   ).length;
   const replyRate = total > 0 ? Math.round((replied / total) * 100) : 0;
 
-  // Rating distribution
   const ratingDistribution = [5, 4, 3, 2, 1].map((star) => ({
     label: `${star} star`,
     value: reviews.filter((r) => r.rating === star).length,
   }));
 
-  // Monthly reviews (last 6 months)
   const now = new Date();
   const monthlyReviews = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
@@ -205,9 +228,8 @@ export async function getAnalyticsData(
     return { label: month, value: count };
   });
 
-  // Sentiment
-  const positive = reviews.filter((r) => r.rating >= 4).length;
-  const neutral = reviews.filter((r) => r.rating === 3).length;
+  const positive = reviews.filter((r) => r.rating >= POSITIVE_RATING_THRESHOLD).length;
+  const neutral = reviews.filter((r) => r.rating === NEUTRAL_RATING).length;
   const negative = reviews.filter((r) => r.rating <= 2).length;
 
   return {
