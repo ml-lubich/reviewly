@@ -5,5 +5,8 @@ import { getAppUrl } from "@/lib/env";
 export async function POST() {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect(new URL("/login", getAppUrl()));
+
+  return NextResponse.redirect(new URL("/login", getAppUrl()), {
+    status: 303,
+  });
 }

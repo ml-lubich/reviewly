@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getGoogleAuthUrl } from "@/lib/google-oauth";
+import { getAppUrl } from "@/lib/env";
 
 export async function GET() {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"));
+    return NextResponse.redirect(new URL("/login", getAppUrl()));
   }
 
-  // Use user ID as state to verify callback
-  const state = user.id;
-  const authUrl = getGoogleAuthUrl(state);
-
+  const authUrl = getGoogleAuthUrl(user.id);
   return NextResponse.redirect(authUrl);
 }
