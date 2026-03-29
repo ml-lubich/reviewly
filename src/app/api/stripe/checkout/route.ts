@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getStripe, STRIPE_PRICE_IDS } from "@/lib/stripe";
 import { getAppUrl } from "@/lib/env";
+import Stripe from "stripe";
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
       .single();
 
-    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],

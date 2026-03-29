@@ -51,6 +51,18 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
+function extractPeriodDates(subscription: Stripe.Subscription) {
+  const firstItem = subscription.items?.data?.[0];
+  return {
+    periodStart: firstItem?.current_period_start
+      ? new Date(firstItem.current_period_start * 1000).toISOString()
+      : null,
+    periodEnd: firstItem?.current_period_end
+      ? new Date(firstItem.current_period_end * 1000).toISOString()
+      : null,
+  };
+}
+
 async function handleCheckoutCompleted(
   supabase: ReturnType<typeof createAdminClient>,
   session: Stripe.Checkout.Session
@@ -67,14 +79,16 @@ async function handleCheckoutCompleted(
     session.subscription as string
   );
 
+  const { periodStart, periodEnd } = extractPeriodDates(subscription);
+
   await supabase.from("subscriptions").upsert({
     user_id: userId,
     stripe_customer_id: session.customer as string,
     stripe_subscription_id: subscription.id,
     tier,
     status: subscription.status,
-    current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    current_period_start: periodStart,
+    current_period_end: periodEnd,
     cancel_at_period_end: subscription.cancel_at_period_end,
   }, { onConflict: "user_id" });
 }
@@ -83,12 +97,14 @@ async function handleSubscriptionUpdated(
   supabase: ReturnType<typeof createAdminClient>,
   subscription: Stripe.Subscription
 ) {
+  const { periodStart, periodEnd } = extractPeriodDates(subscription);
+
   await supabase
     .from("subscriptions")
     .update({
       status: subscription.status,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
     })
     .eq("stripe_subscription_id", subscription.id);

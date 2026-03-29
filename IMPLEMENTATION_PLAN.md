@@ -88,3 +88,57 @@
 - [x] API route documentation
 - [x] Environment variable reference
 - [x] Updated project structure
+
+---
+
+## Phase 3 (v3 — Production Hardening)
+
+### Iteration 1: Audit + Clean Code Review
+- [x] Full codebase audit — BUGS.md written
+- [x] Extract lib/openai.ts (DRY: 3 duplicate AI functions → 1)
+- [x] Extract lib/env.ts (validated env var access, no more ! assertions)
+- [x] Extract lib/constants.ts (named constants for statuses, thresholds)
+- [x] Fix CRITICAL: /api/generate-reply now requires authentication
+- [x] Refactor auth routes to use createServerSupabaseClient
+- [x] Refactor reply route into SRP action handlers
+- [x] Refactor cron route into small focused functions
+- [x] Refactor Google callback into extracted helpers
+
+### Iteration 2: Fix Supabase
+- [x] Add subscriptions table with Stripe fields + RLS policies
+- [x] Add subscription_tier enum
+- [x] Add Subscription TypeScript interface
+- [x] Extract calculateBusinessStats as reusable function
+
+### Iteration 3: Fix Both Auth Flows
+- [x] Signout uses HTTP 303 for POST-to-GET redirect
+- [x] Google connect uses env helpers
+
+### Iteration 4: Fix Dashboard Flows
+- [x] Fix all empty catch blocks — errors logged and shown to users
+- [x] Extract ReplyDisplay component (SRP)
+- [x] Add error states to sync, settings, analytics, reply actions
+- [x] Use shared calculateBusinessStats (DRY)
+
+### Iteration 5: Fix Google Business API
+- [x] Add rate limit retry with exponential backoff (Retry-After header)
+- [x] Applied to both review fetching and reply posting
+
+### Iteration 6: Stripe Integration
+- [x] Install stripe package
+- [x] lib/stripe.ts — singleton client, price IDs, tier limits
+- [x] lib/subscription.ts — feature gating (canAddBusiness, canUseAutoReply)
+- [x] /api/webhooks/stripe — checkout.completed, subscription.updated/deleted
+- [x] /api/stripe/checkout — Stripe Checkout session creation
+- [x] /api/stripe/portal — Stripe Customer Portal session
+
+### Iteration 7: Final Hardening
+- [x] ErrorBoundary component with retry
+- [x] Global error.tsx and not-found.tsx pages
+- [x] Health check validates all env vars, returns 503 if degraded
+- [x] Dashboard wrapped in ErrorBoundary
+
+### Iteration 8: Build + Verify
+- [x] npm run build passes clean (zero errors, zero warnings)
+- [x] Migrate middleware.ts → proxy.ts (Next.js 16 convention)
+- [x] Updated CLAUDE.md, IMPLEMENTATION_PLAN.md
