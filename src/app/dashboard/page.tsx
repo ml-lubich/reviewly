@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -452,6 +453,8 @@ function InlineError({ message, onRetry }: { message: string; onRetry: () => voi
 }
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams();
+  const selectedBusinessId = searchParams.get("business");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -496,7 +499,9 @@ export default function DashboardPage() {
       setBusinesses(bizList || []);
 
       if (bizList && bizList.length > 0) {
-        const biz = bizList[0];
+        const biz = selectedBusinessId
+          ? bizList.find((b: Business) => b.id === selectedBusinessId) || bizList[0]
+          : bizList[0];
         setBusiness(biz);
         await loadReviews(biz);
       }
@@ -504,7 +509,7 @@ export default function DashboardPage() {
       setBusinessError(err instanceof Error ? err.message : "Failed to load businesses");
     }
     setLoading(false);
-  }, [loadReviews]);
+  }, [loadReviews, selectedBusinessId]);
 
   async function syncReviews() {
     if (!business) return;
