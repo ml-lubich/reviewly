@@ -31,14 +31,15 @@ function LoginForm() {
       const supabase = createClient();
 
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-          },
         });
         if (error) throw error;
+        if (data.session) {
+          window.location.href = "/dashboard";
+          return;
+        }
         setSuccess("Check your email for a confirmation link to complete sign up.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
