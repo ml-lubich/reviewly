@@ -21,6 +21,9 @@ import {
   Globe,
   Mail,
   ExternalLink,
+  Users,
+  TrendingUp,
+  Building2,
 } from "lucide-react";
 
 const NAV_LINKS = [
@@ -32,7 +35,16 @@ const NAV_LINKS = [
 
 function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    function handleScroll() {
+      setScrolled(window.scrollY > 10);
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -47,17 +59,28 @@ function Navbar() {
   }, [mobileOpen]);
 
   return (
-    <nav ref={navRef} className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+    <nav
+      ref={navRef}
+      className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+        scrolled
+          ? "border-b border-border/50 bg-background/80 backdrop-blur-xl shadow-sm"
+          : "bg-transparent"
+      }`}
+    >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-indigo-400 shadow-lg shadow-primary/25">
+            <Sparkles className="h-4 w-4 text-white" />
           </div>
-          <span className="text-lg font-bold">Reviewly</span>
+          <span className="text-lg font-bold tracking-tight">Reviewly</span>
         </Link>
         <div className="hidden items-center gap-8 md:flex">
           {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               {link.label}
             </a>
           ))}
@@ -70,13 +93,13 @@ function Navbar() {
             </Button>
           </Link>
           <Link href="/login" className="hidden sm:inline-flex">
-            <Button size="sm">
-              Get started
+            <Button size="sm" className="shadow-md shadow-primary/20">
+              Start free
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </Link>
           <button
-            className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors md:hidden"
+            className="inline-flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors md:hidden"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
           >
@@ -97,7 +120,7 @@ function Navbar() {
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="block rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="block rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               {link.label}
             </a>
@@ -110,7 +133,7 @@ function Navbar() {
             </Link>
             <Link href="/login" onClick={() => setMobileOpen(false)}>
               <Button size="sm" className="w-full justify-center">
-                Get started
+                Start free
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
@@ -123,30 +146,30 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden pt-32 pb-20 md:pt-44 md:pb-32">
+    <section className="relative overflow-hidden pt-32 pb-20 md:pt-48 md:pb-36">
       {/* Background gradient effects */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[600px] w-[800px] rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute top-40 left-1/4 h-[300px] w-[300px] rounded-full bg-violet-500/5 blur-3xl" />
-        <div className="absolute top-60 right-1/4 h-[250px] w-[250px] rounded-full bg-blue-500/5 blur-3xl" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[700px] w-[900px] rounded-full bg-gradient-to-b from-primary/8 to-transparent blur-3xl" />
+        <div className="absolute top-40 left-1/4 h-[350px] w-[350px] rounded-full bg-indigo-500/5 blur-3xl animate-float" />
+        <div className="absolute top-60 right-1/4 h-[280px] w-[280px] rounded-full bg-blue-500/5 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <div className="animate-fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-border/50 bg-muted/50 px-4 py-1.5 text-sm text-muted-foreground">
-            <Zap className="h-3.5 w-3.5 text-primary" />
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="animate-fade-in mb-8 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm text-primary font-medium">
+            <Zap className="h-3.5 w-3.5" />
             AI-powered review management
           </div>
 
-          <h1 className="animate-fade-in-delay-1 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+          <h1 className="animate-fade-in-delay-1 text-5xl font-extrabold tracking-tight leading-[1.1] sm:text-6xl md:text-7xl lg:text-8xl">
             Never miss a{" "}
-            <span className="bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-primary via-indigo-400 to-blue-400 bg-clip-text text-transparent">
               Google Review
             </span>{" "}
             again
           </h1>
 
-          <p className="animate-fade-in-delay-2 mt-6 text-lg text-muted-foreground md:text-xl max-w-2xl mx-auto leading-relaxed">
+          <p className="animate-fade-in-delay-2 mt-8 text-lg text-muted-foreground md:text-xl max-w-2xl mx-auto leading-relaxed">
             Reviewly uses AI to craft perfect responses to every review — in
             your brand&apos;s unique voice. Save hours, delight customers, and
             grow your online reputation on autopilot.
@@ -154,19 +177,19 @@ function Hero() {
 
           <div className="animate-fade-in-delay-3 mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link href="/login">
-              <Button size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
+              <Button size="lg" className="w-full sm:w-auto text-base px-8 h-12 shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 transition-all">
                 Start free trial
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link href="#how-it-works">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 h-12">
                 See how it works
               </Button>
             </Link>
           </div>
 
-          <div className="animate-fade-in-delay-3 mt-8 flex items-center justify-center gap-6 text-sm text-muted-foreground">
+          <div className="animate-fade-in-delay-3 mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Check className="h-3.5 w-3.5 text-emerald-500" />
               Free 14-day trial
@@ -175,24 +198,41 @@ function Hero() {
               <Check className="h-3.5 w-3.5 text-emerald-500" />
               No credit card required
             </span>
-            <span className="hidden sm:flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5">
               <Check className="h-3.5 w-3.5 text-emerald-500" />
               Cancel anytime
             </span>
           </div>
         </div>
 
+        {/* Social proof stats */}
+        <div className="animate-fade-in-delay-3 mt-16 mx-auto max-w-3xl">
+          <div className="grid grid-cols-3 gap-4 md:gap-8">
+            {[
+              { icon: Users, value: "2,500+", label: "Businesses" },
+              { icon: MessageSquareText, value: "1.2M+", label: "Replies sent" },
+              { icon: TrendingUp, value: "4.7", label: "Avg. rating boost" },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <stat.icon className="h-5 w-5 text-primary mx-auto mb-2" />
+                <div className="text-2xl md:text-3xl font-bold tracking-tight">{stat.value}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Mock dashboard preview */}
         <div className="animate-fade-in-delay-3 mt-16 mx-auto max-w-4xl">
-          <div className="rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-1 shadow-2xl shadow-primary/5 pulse-glow">
-            <div className="rounded-lg bg-card p-4 md:p-6">
+          <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-1.5 shadow-2xl shadow-primary/5 pulse-glow">
+            <div className="rounded-xl bg-card p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="h-3 w-3 rounded-full bg-red-400" />
                   <div className="h-3 w-3 rounded-full bg-amber-400" />
                   <div className="h-3 w-3 rounded-full bg-emerald-400" />
                 </div>
-                <div className="text-xs text-muted-foreground">reviewly.app/dashboard</div>
+                <div className="text-xs text-muted-foreground font-mono">reviewly.app/dashboard</div>
               </div>
               <div className="space-y-3">
                 {[
@@ -200,8 +240,8 @@ function Hero() {
                   { name: "James T.", rating: 4, text: "Great coffee and nice ambiance. Got a bit crowded...", status: "Published" },
                   { name: "Priya K.", rating: 2, text: "Waited 20 minutes for a simple espresso...", status: "Needs Review" },
                 ].map((review, i) => (
-                  <div key={i} className="flex items-center gap-4 rounded-lg border border-border/50 bg-muted/30 p-3 md:p-4">
-                    <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                  <div key={i} className="flex items-center gap-4 rounded-xl border border-border/50 bg-muted/30 p-3 md:p-4 transition-colors hover:bg-muted/50">
+                    <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-indigo-400/20 text-sm font-medium text-primary">
                       {review.name[0]}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -274,10 +314,13 @@ function Features() {
   ];
 
   return (
-    <section id="features" className="py-20 md:py-32">
+    <section id="features" className="py-24 md:py-36">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            Features
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             Everything you need to manage reviews
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
@@ -289,12 +332,12 @@ function Features() {
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-xl border border-border/50 bg-card p-6 transition-all hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5"
+              className="group rounded-2xl border border-border/50 bg-card p-6 transition-all duration-300 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-indigo-400/10 text-primary transition-all duration-300 group-hover:from-primary group-hover:to-indigo-500 group-hover:text-white group-hover:shadow-lg group-hover:shadow-primary/25">
                 <feature.icon className="h-5 w-5" />
               </div>
-              <h3 className="mb-2 font-semibold">{feature.title}</h3>
+              <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {feature.description}
               </p>
@@ -331,10 +374,13 @@ function HowItWorks() {
   ];
 
   return (
-    <section id="how-it-works" className="py-20 md:py-32 bg-muted/30">
+    <section id="how-it-works" className="py-24 md:py-36 bg-muted/30">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            How it works
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             Up and running in minutes
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
@@ -343,9 +389,11 @@ function HowItWorks() {
         </div>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s) => (
-            <div key={s.step} className="relative">
-              <div className="text-5xl font-bold text-primary/10 mb-4">{s.step}</div>
-              <h3 className="mb-2 font-semibold">{s.title}</h3>
+            <div key={s.step} className="relative group">
+              <div className="text-6xl font-extrabold bg-gradient-to-b from-primary/15 to-transparent bg-clip-text text-transparent mb-4">
+                {s.step}
+              </div>
+              <h3 className="mb-2 text-lg font-semibold">{s.title}</h3>
               <p className="text-sm leading-relaxed text-muted-foreground">{s.description}</p>
             </div>
           ))}
@@ -358,97 +406,103 @@ function HowItWorks() {
 function Pricing() {
   const plans = [
     {
+      name: "Free",
+      price: "$0",
+      description: "Try it out, no commitment",
+      features: [
+        "1 business location",
+        "Up to 10 reviews/month",
+        "AI reply generation",
+        "Manual approval",
+        "Community support",
+      ],
+    },
+    {
       name: "Starter",
-      price: "$29",
+      price: "$19",
       description: "Perfect for a single location",
+      popular: true,
       features: [
         "1 business location",
         "Up to 100 reviews/month",
         "AI reply generation",
-        "Manual approval workflow",
+        "Auto-reply mode",
+        "Basic analytics",
         "Email support",
       ],
     },
     {
-      name: "Professional",
-      price: "$79",
+      name: "Pro",
+      price: "$39",
       description: "For growing businesses",
-      popular: true,
       features: [
         "Up to 5 locations",
         "Unlimited reviews",
         "AI reply generation",
         "Auto-reply mode",
-        "Analytics dashboard",
+        "Advanced analytics",
         "Priority support",
         "Custom tone per location",
-      ],
-    },
-    {
-      name: "Enterprise",
-      price: "$199",
-      description: "For large organizations",
-      features: [
-        "Unlimited locations",
-        "Unlimited reviews",
-        "AI reply generation",
-        "Auto-reply mode",
-        "Advanced analytics",
         "API access",
-        "Dedicated account manager",
-        "Custom integrations",
       ],
     },
   ];
 
   return (
-    <section id="pricing" className="py-20 md:py-32">
+    <section id="pricing" className="py-24 md:py-36">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            Pricing
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             Simple, transparent pricing
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Start free. Upgrade when you&apos;re ready.
+            Start free. Upgrade when you&apos;re ready. No hidden fees.
           </p>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative rounded-xl border p-6 ${
+              className={`relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 ${
                 plan.popular
-                  ? "border-primary bg-card shadow-lg shadow-primary/10 scale-105"
-                  : "border-border/50 bg-card"
+                  ? "glass border-primary/30 shadow-xl shadow-primary/10 scale-[1.02] lg:scale-105"
+                  : "glass"
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-medium text-primary-foreground">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary to-indigo-400 px-4 py-0.5 text-xs font-semibold text-white shadow-lg shadow-primary/25">
                   Most popular
                 </div>
               )}
               <div className="mb-4">
-                <h3 className="font-semibold">{plan.name}</h3>
+                <h3 className="text-lg font-semibold">{plan.name}</h3>
                 <p className="text-sm text-muted-foreground">{plan.description}</p>
               </div>
               <div className="mb-6">
-                <span className="text-4xl font-bold">{plan.price}</span>
+                <span className="text-5xl font-extrabold tracking-tight">{plan.price}</span>
                 <span className="text-muted-foreground">/mo</span>
               </div>
-              <ul className="mb-6 space-y-2.5">
+              <ul className="mb-6 space-y-3">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-primary shrink-0" />
+                  <li key={feature} className="flex items-center gap-2.5 text-sm">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <Check className="h-3 w-3 text-primary" />
+                    </div>
                     {feature}
                   </li>
                 ))}
               </ul>
               <Link href="/login" className="block">
                 <Button
-                  className="w-full"
+                  className={`w-full h-11 rounded-xl font-medium transition-all ${
+                    plan.popular ? "shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30" : ""
+                  }`}
                   variant={plan.popular ? "default" : "outline"}
                 >
-                  Get started
+                  {plan.price === "$0" ? "Get started free" : "Start free trial"}
                 </Button>
               </Link>
             </div>
@@ -485,10 +539,13 @@ function Testimonials() {
   ];
 
   return (
-    <section className="py-20 md:py-32 bg-muted/30">
+    <section className="py-24 md:py-36 bg-muted/30">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            Testimonials
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             Loved by business owners
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
@@ -499,14 +556,19 @@ function Testimonials() {
           {testimonials.map((t) => (
             <div
               key={t.name}
-              className="rounded-xl border border-border/50 bg-card p-6 flex flex-col"
+              className="rounded-2xl border border-border/50 bg-card p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
             >
-              <Quote className="h-8 w-8 text-primary/20 mb-4" />
+              <div className="flex gap-1 mb-4">
+                {Array.from({ length: t.rating }, (_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <Quote className="h-8 w-8 text-primary/20 mb-3" />
               <p className="text-sm leading-relaxed text-muted-foreground flex-1">
                 &ldquo;{t.quote}&rdquo;
               </p>
               <div className="mt-6 flex items-center gap-3 pt-4 border-t border-border/50">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-indigo-400/20 text-sm font-semibold text-primary">
                   {t.name[0]}
                 </div>
                 <div>
@@ -542,35 +604,38 @@ function FAQ() {
     {
       question: "Does Reviewly work with multiple business locations?",
       answer:
-        "Yes. On the Professional plan and above, you can connect multiple Google Business locations and configure different tones and auto-reply settings for each one, all from a single dashboard.",
+        "Yes. On the Pro plan, you can connect up to 5 Google Business locations and configure different tones and auto-reply settings for each one, all from a single dashboard.",
     },
     {
-      question: "Is there a free trial?",
+      question: "Is there a free plan?",
       answer:
-        "Yes — every new account gets a 14-day free trial with full access to all features. No credit card required to start. You can upgrade to a paid plan at any time to continue using Reviewly.",
+        "Yes — we offer a free plan with up to 10 AI-generated replies per month for one location. Every paid plan also comes with a 14-day free trial so you can experience the full feature set before committing.",
     },
   ];
 
   return (
-    <section id="faq" className="py-20 md:py-32">
+    <section id="faq" className="py-24 md:py-36">
       <div className="mx-auto max-w-3xl px-6">
         <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            FAQ
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             Frequently asked questions
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
             Everything you need to know about Reviewly.
           </p>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {faqs.map((faq) => (
             <details
               key={faq.question}
-              className="group rounded-xl border border-border/50 bg-card"
+              className="group rounded-2xl border border-border/50 bg-card transition-all duration-200 hover:border-primary/20"
             >
               <summary className="flex cursor-pointer items-center justify-between p-5 text-sm font-medium [&::-webkit-details-marker]:hidden list-none">
                 {faq.question}
-                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180 shrink-0 ml-4" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180 shrink-0 ml-4" />
               </summary>
               <div className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
                 {faq.answer}
@@ -585,14 +650,15 @@ function FAQ() {
 
 function FinalCTA() {
   return (
-    <section className="py-20 md:py-32 bg-muted/30">
+    <section className="py-24 md:py-36 bg-muted/30">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="relative overflow-hidden rounded-2xl bg-primary p-8 md:p-16 text-center">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-          <h2 className="relative text-3xl font-bold tracking-tight text-primary-foreground sm:text-4xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-indigo-500 to-blue-500 p-8 md:p-20 text-center">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.15),transparent_60%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(255,255,255,0.1),transparent_50%)]" />
+          <h2 className="relative text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
             Ready to automate your reviews?
           </h2>
-          <p className="relative mt-4 text-lg text-primary-foreground/80 max-w-xl mx-auto">
+          <p className="relative mt-4 text-lg text-white/80 max-w-xl mx-auto">
             Join thousands of businesses using Reviewly to respond faster, grow
             their reputation, and win more customers.
           </p>
@@ -600,7 +666,7 @@ function FinalCTA() {
             <Link href="/login">
               <Button
                 size="lg"
-                className="bg-white text-primary hover:bg-white/90 shadow-lg"
+                className="bg-white text-primary hover:bg-white/90 shadow-xl h-12 px-8 text-base font-semibold"
               >
                 Start your free trial
                 <ArrowRight className="h-4 w-4" />
@@ -610,14 +676,14 @@ function FinalCTA() {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
+                className="border-white/20 text-white hover:bg-white/10 h-12 px-8 text-base"
               >
                 View pricing
               </Button>
             </Link>
           </div>
-          <p className="relative mt-6 text-sm text-primary-foreground/60">
-            No credit card required. 14-day free trial included.
+          <p className="relative mt-6 text-sm text-white/50">
+            No credit card required. Free plan available forever.
           </p>
         </div>
       </div>
@@ -632,11 +698,11 @@ function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Company info */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-                <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-indigo-400 shadow-md shadow-primary/20">
+                <Sparkles className="h-3.5 w-3.5 text-white" />
               </div>
-              <span className="font-semibold">Reviewly</span>
+              <span className="font-semibold tracking-tight">Reviewly</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
               AI-powered Google Review management. Respond faster, grow your

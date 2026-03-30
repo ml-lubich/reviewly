@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 const SITE_URL = "https://reviewly.app";
 const SITE_NAME = "Reviewly";
@@ -71,8 +78,8 @@ const jsonLd = {
     "@type": "AggregateOffer",
     priceCurrency: "USD",
     lowPrice: "0",
-    highPrice: "199",
-    offerCount: "4",
+    highPrice: "39",
+    offerCount: "3",
   },
   aggregateRating: {
     "@type": "AggregateRating",
@@ -87,9 +94,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
-        <meta name="theme-color" content="#7c3aed" />
+        <meta name="theme-color" content="#4f46e5" />
         <link rel="manifest" href="/manifest.json" />
         <script
           type="application/ld+json"

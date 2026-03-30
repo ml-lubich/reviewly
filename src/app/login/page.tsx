@@ -5,52 +5,176 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase";
-import { Sparkles, ArrowLeft, AlertCircle } from "lucide-react";
+import { Sparkles, ArrowLeft, AlertCircle, Mail, Lock, Eye, EyeOff } from "lucide-react";
+
+type AuthMode = "signin" | "signup";
 
 function LoginForm() {
   const [loading, setLoading] = useState(false);
-  const searchParams = useSearchParams();
-  const error = searchParams.get("error");
+  const [mode, setMode] = useState<AuthMode>("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  async function handleGoogleLogin() {
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get("error");
+
+  async function handleEmailAuth(e: React.FormEvent) {
+    e.preventDefault();
     setLoading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/api/auth/callback`,
-        },
-      });
-      if (error) throw error;
-    } catch {
+
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+          },
+        });
+        if (error) throw error;
+        setSuccess("Check your email for a confirmation link to complete sign up.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        window.location.href = "/dashboard";
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed. Please try again.");
+    } finally {
       setLoading(false);
     }
   }
 
+  const displayError = error || (urlError ? "Authentication failed. Please try again." : null);
+
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-8 shadow-lg shadow-primary/5">
+    <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-xl p-8 shadow-xl shadow-primary/5">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-          <Sparkles className="h-6 w-6 text-primary-foreground" />
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-indigo-400 shadow-lg shadow-primary/25">
+          <Sparkles className="h-6 w-6 text-white" />
         </div>
-        <h1 className="text-2xl font-bold">Welcome to Reviewly</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {mode === "signin" ? "Welcome back" : "Create your account"}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sign in to manage your Google Reviews with AI
+          {mode === "signin"
+            ? "Sign in to manage your Google Reviews with AI"
+            : "Start automating your review responses today"}
         </p>
       </div>
 
-      {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+      {displayError && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          Authentication failed. Please try again.
+          {displayError}
         </div>
       )}
 
+      {success && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+          <Mail className="h-4 w-4 shrink-0" />
+          {success}
+        </div>
+      )}
+
+      <form onSubmit={handleEmailAuth} className="space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium mb-1.5">
+            Email
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+              className="w-full rounded-xl border border-input bg-background px-10 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium mb-1.5">
+            Password
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={mode === "signup" ? "Min. 6 characters" : "Your password"}
+              required
+              minLength={6}
+              className="w-full rounded-xl border border-input bg-background px-10 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full h-11 rounded-xl font-medium shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:shadow-primary/30"
+        >
+          {loading
+            ? "Please wait..."
+            : mode === "signin"
+              ? "Sign in"
+              : "Create account"}
+        </Button>
+      </form>
+
+      <div className="mt-4 text-center">
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === "signin" ? "signup" : "signin");
+            setError(null);
+            setSuccess(null);
+          }}
+          className="text-sm text-muted-foreground hover:text-primary transition-colors"
+        >
+          {mode === "signin"
+            ? "Don't have an account? Sign up"
+            : "Already have an account? Sign in"}
+        </button>
+      </div>
+
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border/50" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-card/80 px-3 text-muted-foreground">or</span>
+        </div>
+      </div>
+
       <Button
-        onClick={handleGoogleLogin}
-        disabled={loading}
-        className="w-full h-11"
+        type="button"
+        disabled
+        className="w-full h-11 rounded-xl relative opacity-60 cursor-not-allowed"
         variant="outline"
       >
         <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
@@ -71,16 +195,19 @@ function LoginForm() {
             fill="#EA4335"
           />
         </svg>
-        {loading ? "Connecting..." : "Continue with Google"}
+        Continue with Google
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          Coming soon
+        </span>
       </Button>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         By signing in, you agree to our{" "}
-        <a href="#" className="underline hover:text-foreground">
+        <a href="#" className="underline hover:text-foreground transition-colors">
           Terms of Service
         </a>{" "}
         and{" "}
-        <a href="#" className="underline hover:text-foreground">
+        <a href="#" className="underline hover:text-foreground transition-colors">
           Privacy Policy
         </a>
       </p>
@@ -93,9 +220,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-6">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 h-[500px] w-[600px] rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute top-1/3 left-1/4 h-[300px] w-[300px] rounded-full bg-indigo-500/5 blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-sm">
+      <div className="relative w-full max-w-sm animate-fade-in">
         <Link
           href="/"
           className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -104,7 +232,7 @@ export default function LoginPage() {
           Back to home
         </Link>
 
-        <Suspense fallback={<div className="h-80 rounded-xl border border-border/50 bg-card animate-pulse" />}>
+        <Suspense fallback={<div className="h-[500px] rounded-2xl border border-border/50 bg-card animate-pulse" />}>
           <LoginForm />
         </Suspense>
       </div>
