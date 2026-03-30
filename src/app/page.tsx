@@ -13,6 +13,8 @@ import {
   ArrowRight,
   Check,
   Sparkles,
+  Quote,
+  ChevronDown,
 } from "lucide-react";
 
 function Navbar() {
@@ -34,6 +36,9 @@ function Navbar() {
           </a>
           <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             How it works
+          </a>
+          <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            FAQ
           </a>
         </div>
         <div className="flex items-center gap-3">
@@ -393,9 +398,133 @@ function Pricing() {
   );
 }
 
-function CTA() {
+function Testimonials() {
+  const testimonials = [
+    {
+      name: "Rachel Chen",
+      role: "Owner, The Golden Whisk Bakery",
+      quote:
+        "Before Reviewly, I spent an hour every morning replying to Google reviews. Now the AI handles it perfectly in our warm, friendly tone. Our reply rate went from 40% to 100% overnight.",
+      rating: 5,
+    },
+    {
+      name: "Marcus Johnson",
+      role: "GM, AutoCare Plus (3 locations)",
+      quote:
+        "Managing reviews across three shops was a nightmare. Reviewly lets us keep a consistent brand voice everywhere while saving us 15+ hours a week. Our Google rating went up from 4.1 to 4.6 in two months.",
+      rating: 5,
+    },
+    {
+      name: "Dr. Priya Sharma",
+      role: "Director, Bright Smile Dental",
+      quote:
+        "The tone-matching is what sold me. Patients get thoughtful, empathetic responses to sensitive reviews — not generic templates. It genuinely feels like we wrote each one ourselves.",
+      rating: 5,
+    },
+  ];
+
   return (
-    <section className="py-20 md:py-32">
+    <section className="py-20 md:py-32 bg-muted/30">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-2xl text-center mb-16">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Loved by business owners
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            See how Reviewly is helping real businesses grow their reputation.
+          </p>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {testimonials.map((t) => (
+            <div
+              key={t.name}
+              className="rounded-xl border border-border/50 bg-card p-6 flex flex-col"
+            >
+              <Quote className="h-8 w-8 text-primary/20 mb-4" />
+              <p className="text-sm leading-relaxed text-muted-foreground flex-1">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div className="mt-6 flex items-center gap-3 pt-4 border-t border-border/50">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  {t.name[0]}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.role}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FAQ() {
+  const faqs = [
+    {
+      question: "How does Reviewly connect to my Google Business Profile?",
+      answer:
+        "After you sign in, you'll go through a secure Google OAuth flow that grants Reviewly permission to read your reviews and post replies on your behalf. Your credentials are never stored — we use secure access tokens that you can revoke at any time.",
+    },
+    {
+      question: "Can I review AI replies before they're published?",
+      answer:
+        "Absolutely. By default, Reviewly generates a draft reply for each review that you can edit, approve, or discard. If you prefer a hands-off approach, you can enable auto-reply mode to publish responses automatically.",
+    },
+    {
+      question: "What happens if the AI writes something I don't like?",
+      answer:
+        "You always have full control. Every generated reply can be edited before publishing. You can also fine-tune the AI's behavior by adjusting your tone settings, providing example responses, and adding custom instructions.",
+    },
+    {
+      question: "Does Reviewly work with multiple business locations?",
+      answer:
+        "Yes. On the Professional plan and above, you can connect multiple Google Business locations and configure different tones and auto-reply settings for each one, all from a single dashboard.",
+    },
+    {
+      question: "Is there a free trial?",
+      answer:
+        "Yes — every new account gets a 14-day free trial with full access to all features. No credit card required to start. You can upgrade to a paid plan at any time to continue using Reviewly.",
+    },
+  ];
+
+  return (
+    <section id="faq" className="py-20 md:py-32">
+      <div className="mx-auto max-w-3xl px-6">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Frequently asked questions
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Everything you need to know about Reviewly.
+          </p>
+        </div>
+        <div className="space-y-4">
+          {faqs.map((faq) => (
+            <details
+              key={faq.question}
+              className="group rounded-xl border border-border/50 bg-card"
+            >
+              <summary className="flex cursor-pointer items-center justify-between p-5 text-sm font-medium [&::-webkit-details-marker]:hidden list-none">
+                {faq.question}
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180 shrink-0 ml-4" />
+              </summary>
+              <div className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
+                {faq.answer}
+              </div>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FinalCTA() {
+  return (
+    <section className="py-20 md:py-32 bg-muted/30">
       <div className="mx-auto max-w-7xl px-6">
         <div className="relative overflow-hidden rounded-2xl bg-primary p-8 md:p-16 text-center">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
@@ -403,10 +532,10 @@ function CTA() {
             Ready to automate your reviews?
           </h2>
           <p className="relative mt-4 text-lg text-primary-foreground/80 max-w-xl mx-auto">
-            Join thousands of businesses using Reviewly to respond faster,
-            grow their reputation, and win more customers.
+            Join thousands of businesses using Reviewly to respond faster, grow
+            their reputation, and win more customers.
           </p>
-          <div className="relative mt-8">
+          <div className="relative mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/login">
               <Button
                 size="lg"
@@ -416,7 +545,19 @@ function CTA() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
+            <Link href="#pricing">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                View pricing
+              </Button>
+            </Link>
           </div>
+          <p className="relative mt-6 text-sm text-primary-foreground/60">
+            No credit card required. 14-day free trial included.
+          </p>
         </div>
       </div>
     </section>
@@ -451,7 +592,9 @@ export default function LandingPage() {
       <Features />
       <HowItWorks />
       <Pricing />
-      <CTA />
+      <Testimonials />
+      <FAQ />
+      <FinalCTA />
       <Footer />
     </div>
   );
