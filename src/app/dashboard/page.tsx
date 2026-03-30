@@ -410,6 +410,107 @@ function countReviewsThisMonth(reviews: Review[]): number {
 
 const EMPTY_STATS: BusinessStats = { total_reviews: 0, pending_replies: 0, replied_count: 0, average_rating: 0 };
 
+function AddReviewForm({
+  businessId,
+  onReviewAdded,
+  onClose,
+}: {
+  businessId: string;
+  onReviewAdded: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [reviewerName, setReviewerName] = useState("");
+  const [rating, setRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reviewerName.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          reviewerName: reviewerName.trim(),
+          rating,
+          reviewText: reviewText.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to add review");
+      }
+      toast.success("Review added");
+      await onReviewAdded();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add review");
+    }
+    setSubmitting(false);
+  }
+
+  return (
+    <Card className="border-primary/20">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Plus className="h-4 w-4 text-primary" />
+            <span className="font-medium">Add Review</span>
+          </div>
+          <button onClick={onClose}>
+            <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Reviewer Name</label>
+              <Input
+                placeholder="John Doe"
+                value={reviewerName}
+                onChange={(e) => setReviewerName(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Rating</label>
+              <Select value={String(rating)} onValueChange={(v) => setRating(Number(v))}>
+                <option value="5">5 stars</option>
+                <option value="4">4 stars</option>
+                <option value="3">3 stars</option>
+                <option value="2">2 stars</option>
+                <option value="1">1 star</option>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Review Text</label>
+            <Textarea
+              placeholder="Great service! Very professional..."
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={submitting || !reviewerName.trim()}>
+              {submitting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+              {submitting ? "Adding..." : "Add Review"}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function mapReviewsFromSupabase(revs: Record<string, unknown>[]): Review[] {
   return revs.map((r) => ({
     ...r,
@@ -447,6 +548,89 @@ function InlineError({ message, onRetry }: { message: string; onRetry: () => voi
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function EmptyBusinessState({ onBusinessCreated }: { onBusinessCreated: () => Promise<void> }) {
+  const [showForm, setShowForm] = useState(false);
+  const [businessName, setBusinessName] = useState("");
+  const [googlePlaceId, setGooglePlaceId] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!businessName.trim()) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/businesses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: businessName.trim(),
+          googlePlaceId: googlePlaceId.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create business");
+      }
+      toast.success("Business created");
+      await onBusinessCreated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create business");
+    }
+    setCreating(false);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Get started by adding your business</p>
+      </div>
+      <Card>
+        <CardContent className="p-12 text-center">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+            <Store className="h-10 w-10 text-primary" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Add your first business</h2>
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            Create a business to start managing reviews with AI-powered replies.
+          </p>
+
+          {showForm ? (
+            <form onSubmit={handleCreate} className="mx-auto max-w-sm space-y-3">
+              <Input
+                placeholder="Business name"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                autoFocus
+                required
+              />
+              <Input
+                placeholder="Google Place ID (optional)"
+                value={googlePlaceId}
+                onChange={(e) => setGooglePlaceId(e.target.value)}
+              />
+              <div className="flex gap-2 justify-center">
+                <Button type="submit" disabled={creating || !businessName.trim()}>
+                  {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                  {creating ? "Creating..." : "Create Business"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Business
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -519,6 +703,7 @@ export default function DashboardPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [showAddReview, setShowAddReview] = useState(false);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -788,33 +973,7 @@ export default function DashboardPage() {
   }
 
   if (!business) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Get started by connecting your business</p>
-        </div>
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-              <Store className="h-10 w-10 text-primary" />
-            </div>
-            <h2 className="text-xl font-semibold mb-2">Connect your first business</h2>
-            <p className="text-muted-foreground mb-2 max-w-md mx-auto">
-              Link your Google Business Profile to start managing reviews with AI-powered replies.
-            </p>
-            <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-              Once connected, we&apos;ll automatically sync your reviews and you can reply to them
-              individually or let AI handle responses in your configured tone.
-            </p>
-            <Button onClick={() => window.location.href = "/api/google/connect"}>
-              <Plus className="h-4 w-4 mr-2" />
-              Connect Google Business
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <EmptyBusinessState onBusinessCreated={loadBusinesses} />;
   }
 
   return (
@@ -833,6 +992,10 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => setShowAddReview(true)} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Review
+          </Button>
           {reviews.length > 0 && (
             <Button onClick={exportCsv} disabled={exporting} variant="outline" size="sm">
               <Download className={`h-4 w-4 mr-1 ${exporting ? "animate-pulse" : ""}`} />
@@ -845,6 +1008,16 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {showAddReview && business && (
+        <AddReviewForm
+          businessId={business.id}
+          onReviewAdded={async () => {
+            if (business) await loadReviews(business);
+          }}
+          onClose={() => setShowAddReview(false)}
+        />
+      )}
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Building2} label="Businesses" value={businesses.length.toString()} />
