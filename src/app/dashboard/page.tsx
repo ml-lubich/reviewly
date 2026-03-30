@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,10 @@ import {
   X,
   Plus,
   RefreshCw,
+  Building2,
+  Star,
+  CalendarDays,
+  Store,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { calculateBusinessStats } from "@/lib/data";
@@ -382,6 +386,29 @@ function GenerateReplySection({
   );
 }
 
+function formatLastSynced(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function countReviewsThisMonth(reviews: Review[]): number {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  return reviews.filter(
+    (r) => new Date(r.review_date) >= startOfMonth
+  ).length;
+}
+
 const EMPTY_STATS: BusinessStats = { total_reviews: 0, pending_replies: 0, replied_count: 0, average_rating: 0 };
 
 function mapReviewsFromSupabase(revs: Record<string, unknown>[]): Review[] {
@@ -392,24 +419,92 @@ function mapReviewsFromSupabase(revs: Record<string, unknown>[]): Review[] {
 }
 
 async function fetchReviewsForBusiness(supabase: ReturnType<typeof createClient>, businessId: string): Promise<Review[]> {
-  const { data: revs } = await supabase
+  const { data: revs, error } = await supabase
     .from("reviews")
     .select("*, reply:replies(*)")
     .eq("business_id", businessId)
     .order("review_date", { ascending: false });
 
+  if (error) throw error;
   return mapReviewsFromSupabase(revs || []);
+}
+
+function InlineError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <Card className="border-destructive/30 bg-destructive/5">
+      <CardContent className="p-6">
+        <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+            <AlertCircle className="h-5 w-5 text-destructive" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-destructive">Something went wrong</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{message}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Retry
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<BusinessStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [businessError, setBusinessError] = useState<string | null>(null);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+
+  const loadReviews = useCallback(async (biz: Business) => {
+    setReviewsError(null);
+    try {
+      const supabase = createClient();
+      const mappedReviews = await fetchReviewsForBusiness(supabase, biz.id);
+      setReviews(mappedReviews);
+      setStats(calculateBusinessStats(mappedReviews));
+      setLastSyncedAt(biz.updated_at);
+    } catch (err) {
+      setReviewsError(err instanceof Error ? err.message : "Failed to load reviews");
+    }
+  }, []);
+
+  const loadBusinesses = useCallback(async () => {
+    setBusinessError(null);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+
+      const { data: bizList, error } = await supabase
+        .from("businesses")
+        .select("*")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setBusinesses(bizList || []);
+
+      if (bizList && bizList.length > 0) {
+        const biz = bizList[0];
+        setBusiness(biz);
+        await loadReviews(biz);
+      }
+    } catch (err) {
+      setBusinessError(err instanceof Error ? err.message : "Failed to load businesses");
+    }
+    setLoading(false);
+  }, [loadReviews]);
 
   async function syncReviews() {
     if (!business) return;
@@ -427,6 +522,7 @@ export default function DashboardPage() {
       const mappedReviews = await fetchReviewsForBusiness(supabase, business.id);
       setReviews(mappedReviews);
       setStats(calculateBusinessStats(mappedReviews));
+      setLastSyncedAt(new Date().toISOString());
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : "Sync failed");
     }
@@ -434,34 +530,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { setLoading(false); return; }
-
-        const { data: businesses } = await supabase
-          .from("businesses")
-          .select("*")
-          .eq("owner_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (!businesses || businesses.length === 0) { setLoading(false); return; }
-
-        const biz = businesses[0];
-        setBusiness(biz);
-
-        const mappedReviews = await fetchReviewsForBusiness(supabase, biz.id);
-        setReviews(mappedReviews);
-        setStats(calculateBusinessStats(mappedReviews));
-      } catch (err) {
-        console.error("Failed to load dashboard data:", err);
-      }
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+    loadBusinesses();
+  }, [loadBusinesses]);
 
   useEffect(() => {
     if (!business) return;
@@ -495,10 +565,24 @@ export default function DashboardPage() {
     return true;
   });
 
+  const reviewsThisMonth = countReviewsThisMonth(reviews);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (businessError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Manage your business reviews</p>
+        </div>
+        <InlineError message={businessError} onRetry={loadBusinesses} />
       </div>
     );
   }
@@ -512,12 +596,19 @@ export default function DashboardPage() {
         </div>
         <Card>
           <CardContent className="p-12 text-center">
-            <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">No business connected</h2>
-            <p className="text-muted-foreground mb-4">
-              Connect your Google Business Profile to start managing reviews with AI.
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <Store className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Connect your first business</h2>
+            <p className="text-muted-foreground mb-2 max-w-md mx-auto">
+              Link your Google Business Profile to start managing reviews with AI-powered replies.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+              Once connected, we&apos;ll automatically sync your reviews and you can reply to them
+              individually or let AI handle responses in your configured tone.
             </p>
             <Button onClick={() => window.location.href = "/api/google/connect"}>
+              <Plus className="h-4 w-4 mr-2" />
               Connect Google Business
             </Button>
           </CardContent>
@@ -528,12 +619,18 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
             Manage reviews for {business.business_name}
           </p>
+          {lastSyncedAt && (
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Last synced {formatLastSynced(lastSyncedAt)}
+            </p>
+          )}
         </div>
         <Button onClick={syncReviews} disabled={syncing} variant="outline" size="sm">
           <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
@@ -545,60 +642,81 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {syncError}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-destructive hover:text-destructive"
+            onClick={syncReviews}
+          >
+            Retry
+          </Button>
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={Building2} label="Businesses" value={businesses.length.toString()} />
         <StatCard icon={MessageSquareText} label="Total Reviews" value={stats.total_reviews.toString()} />
-        <StatCard icon={AlertCircle} label="Pending Reply" value={stats.pending_replies.toString()} />
         <StatCard
-          icon={Check}
-          label="Replied"
-          value={stats.replied_count.toString()}
-          trend={stats.total_reviews > 0 ? `${Math.round((stats.replied_count / stats.total_reviews) * 100)}% reply rate` : undefined}
+          icon={Star}
+          label="Avg Rating"
+          value={stats.average_rating > 0 ? stats.average_rating.toFixed(1) : "--"}
         />
-        <StatCard icon={Clock} label="Avg Rating" value={stats.average_rating.toString()} />
+        <StatCard
+          icon={CalendarDays}
+          label="This Month"
+          value={reviewsThisMonth.toString()}
+          trend={reviewsThisMonth > 0 ? `${reviewsThisMonth} new review${reviewsThisMonth === 1 ? "" : "s"}` : undefined}
+        />
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-lg">Recent Reviews</CardTitle>
-            <div className="flex gap-3">
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <option value="all">All statuses</option>
-                <option value="pending">Pending</option>
-                <option value="auto_replied">Auto-replied</option>
-                <option value="manually_replied">Replied</option>
-                <option value="skipped">Skipped</option>
-              </Select>
-              <Select value={filterRating} onValueChange={setFilterRating}>
-                <option value="all">All ratings</option>
-                <option value="5">5 stars</option>
-                <option value="4">4 stars</option>
-                <option value="3">3 stars</option>
-                <option value="2">2 stars</option>
-                <option value="1">1 star</option>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <div className="space-y-3">
-        {filteredReviews.length === 0 ? (
+      {reviewsError ? (
+        <InlineError
+          message={reviewsError}
+          onRetry={() => loadReviews(business)}
+        />
+      ) : (
+        <>
           <Card>
-            <CardContent className="p-12 text-center">
-              <MessageSquareText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground">No reviews match your filters.</p>
-            </CardContent>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <CardTitle className="text-lg">Recent Reviews</CardTitle>
+                <div className="flex gap-3">
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <option value="all">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="auto_replied">Auto-replied</option>
+                    <option value="manually_replied">Replied</option>
+                    <option value="skipped">Skipped</option>
+                  </Select>
+                  <Select value={filterRating} onValueChange={setFilterRating}>
+                    <option value="all">All ratings</option>
+                    <option value="5">5 stars</option>
+                    <option value="4">4 stars</option>
+                    <option value="3">3 stars</option>
+                    <option value="2">2 stars</option>
+                    <option value="1">1 star</option>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
           </Card>
-        ) : (
-          filteredReviews.map((review) => (
-            <ReviewCard key={review.id} review={review} business={business} />
-          ))
-        )}
-      </div>
+
+          <div className="space-y-3">
+            {filteredReviews.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <MessageSquareText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No reviews match your filters.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredReviews.map((review) => (
+                <ReviewCard key={review.id} review={review} business={business} />
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
