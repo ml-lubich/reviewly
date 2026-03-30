@@ -25,9 +25,12 @@ import {
   Star,
   CalendarDays,
   Store,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { calculateBusinessStats } from "@/lib/data";
+import { REVIEWS_PER_PAGE } from "@/lib/constants";
 import type { Business, Review, BusinessStats } from "@/lib/types";
 
 function StatCard({
@@ -457,6 +460,7 @@ export default function DashboardPage() {
   const selectedBusinessId = searchParams.get("business");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -564,11 +568,19 @@ export default function DashboardPage() {
     };
   }, [business]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, filterRating]);
+
   const filteredReviews = reviews.filter((r) => {
     if (filterStatus !== "all" && r.status !== filterStatus) return false;
     if (filterRating !== "all" && r.rating !== Number(filterRating)) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredReviews.length / REVIEWS_PER_PAGE));
+  const startIndex = (currentPage - 1) * REVIEWS_PER_PAGE;
+  const paginatedReviews = filteredReviews.slice(startIndex, startIndex + REVIEWS_PER_PAGE);
 
   const reviewsThisMonth = countReviewsThisMonth(reviews);
 
@@ -715,11 +727,42 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             ) : (
-              filteredReviews.map((review) => (
+              paginatedReviews.map((review) => (
                 <ReviewCard key={review.id} review={review} business={business} />
               ))
             )}
           </div>
+
+          {filteredReviews.length > REVIEWS_PER_PAGE && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}–{Math.min(startIndex + REVIEWS_PER_PAGE, filteredReviews.length)} of {filteredReviews.length} reviews
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

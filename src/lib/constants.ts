@@ -40,5 +40,8 @@ export const STARTER_TIER_BUSINESSES = 1;
 export const PROFESSIONAL_TIER_BUSINESSES = 5;
 export const ENTERPRISE_TIER_BUSINESSES = Infinity;
 
+// Pagination
+export const REVIEWS_PER_PAGE = 10;
+
 // Auto-reply
 export const AUTO_REPLY_BATCH_LIMIT = 10;
