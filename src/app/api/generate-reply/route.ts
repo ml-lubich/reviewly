@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { generateReviewReply } from "@/lib/openai";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_GENERATE_REPLY } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -9,6 +11,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const rateLimitResponse = checkRateLimit(`generate-reply:${user.id}`, RATE_LIMIT_GENERATE_REPLY);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const body = await request.json();

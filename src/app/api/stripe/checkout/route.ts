@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getStripe, STRIPE_PRICE_IDS } from "@/lib/stripe";
 import { getAppUrl } from "@/lib/env";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_STRIPE_CHECKOUT } from "@/lib/constants";
 import Stripe from "stripe";
 
 export async function POST(request: NextRequest) {
@@ -11,6 +13,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const rateLimitResponse = checkRateLimit(`stripe-checkout:${user.id}`, RATE_LIMIT_STRIPE_CHECKOUT);
+  if (rateLimitResponse) return rateLimitResponse;
 
   const body = await request.json();
   const { tier } = body;

@@ -45,3 +45,10 @@ export const REVIEWS_PER_PAGE = 10;
 
 // Auto-reply
 export const AUTO_REPLY_BATCH_LIMIT = 10;
+
+// Rate limiting (requests per window)
+export const RATE_LIMIT_GENERATE_REPLY = { maxRequests: 20, windowMs: 60_000 };
+export const RATE_LIMIT_REVIEWS_SYNC = { maxRequests: 5, windowMs: 60_000 };
+export const RATE_LIMIT_STRIPE_CHECKOUT = { maxRequests: 3, windowMs: 60_000 };
+export const RATE_LIMIT_STRIPE_PORTAL = { maxRequests: 5, windowMs: 60_000 };
+export const RATE_LIMIT_GOOGLE_CONNECT = { maxRequests: 3, windowMs: 60_000 };

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { fetchGoogleReviews } from "@/lib/google-business";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_REVIEWS_SYNC } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -17,13 +19,16 @@ export async function POST(request: NextRequest) {
     // Service role: sync all businesses or a specific one
     supabase = createAdminClient();
   } else {
-    // User call: verify auth
+    // User call: verify auth and rate limit
     supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const rateLimitResponse = checkRateLimit(`reviews-sync:${user.id}`, RATE_LIMIT_REVIEWS_SYNC);
+    if (rateLimitResponse) return rateLimitResponse;
   }
 
   try {

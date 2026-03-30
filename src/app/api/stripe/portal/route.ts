@@ -1,15 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getStripe } from "@/lib/stripe";
 import { getAppUrl } from "@/lib/env";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_STRIPE_PORTAL } from "@/lib/constants";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const rateLimitResponse = checkRateLimit(`stripe-portal:${user.id}`, RATE_LIMIT_STRIPE_PORTAL);
+  if (rateLimitResponse) return rateLimitResponse;
 
   const { data: subscription } = await supabase
     .from("subscriptions")
