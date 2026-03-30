@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,10 +28,12 @@ import {
   Store,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase";
 import { calculateBusinessStats } from "@/lib/data";
-import { REVIEWS_PER_PAGE } from "@/lib/constants";
+import { REVIEWS_PER_PAGE, SEARCH_DEBOUNCE_MS, NEGATIVE_RATING_MAX } from "@/lib/constants";
 import type { Business, Review, BusinessStats } from "@/lib/types";
 
 function StatCard({
@@ -444,6 +446,10 @@ export default function DashboardPage() {
   const selectedBusinessId = searchParams.get("business");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [chipNeedsReply, setChipNeedsReply] = useState(false);
+  const [chipNegative, setChipNegative] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [business, setBusiness] = useState<Business | null>(null);
@@ -454,6 +460,7 @@ export default function DashboardPage() {
   const [businessError, setBusinessError] = useState<string | null>(null);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const loadReviews = useCallback(async (biz: Business) => {
     setReviewsError(null);
@@ -552,14 +559,50 @@ export default function DashboardPage() {
   }, [business]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [filterStatus, filterRating]);
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const filteredReviews = reviews.filter((r) => {
-    if (filterStatus !== "all" && r.status !== filterStatus) return false;
-    if (filterRating !== "all" && r.rating !== Number(filterRating)) return false;
-    return true;
-  });
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    setSearchQuery("");
+    setDebouncedSearch("");
+    setChipNeedsReply(false);
+    setChipNegative(false);
+  }, [selectedBusinessId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, filterRating, debouncedSearch, chipNeedsReply, chipNegative]);
+
+  const pendingCount = useMemo(() => reviews.filter((r) => r.status === "pending").length, [reviews]);
+  const negativeCount = useMemo(() => reviews.filter((r) => r.rating <= NEGATIVE_RATING_MAX).length, [reviews]);
+
+  const filteredReviews = useMemo(() => {
+    const query = debouncedSearch.toLowerCase();
+    return reviews.filter((r) => {
+      if (filterStatus !== "all" && r.status !== filterStatus) return false;
+      if (filterRating !== "all" && r.rating !== Number(filterRating)) return false;
+      if (chipNeedsReply && r.status !== "pending") return false;
+      if (chipNegative && r.rating > NEGATIVE_RATING_MAX) return false;
+      if (query) {
+        const matchesName = r.reviewer_name.toLowerCase().includes(query);
+        const matchesText = r.review_text?.toLowerCase().includes(query);
+        if (!matchesName && !matchesText) return false;
+      }
+      return true;
+    });
+  }, [reviews, filterStatus, filterRating, chipNeedsReply, chipNegative, debouncedSearch]);
 
   const totalPages = Math.max(1, Math.ceil(filteredReviews.length / REVIEWS_PER_PAGE));
   const startIndex = (currentPage - 1) * REVIEWS_PER_PAGE;
@@ -681,6 +724,62 @@ export default function DashboardPage() {
                     <option value="2">2 stars</option>
                     <option value="1">1 star</option>
                   </Select>
+                </div>
+              </div>
+              <div className="mt-3 space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name or review text... (⌘K)"
+                    className="pl-9 pr-9"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setChipNeedsReply((prev) => !prev)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                      chipNeedsReply
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    Needs Reply
+                    {pendingCount > 0 && (
+                      <span className={`inline-flex items-center justify-center rounded-full px-1.5 min-w-[1.25rem] text-[10px] font-bold ${
+                        chipNeedsReply ? "bg-primary-foreground/20 text-primary-foreground" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                      }`}>
+                        {pendingCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setChipNegative((prev) => !prev)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                      chipNegative
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    Negative
+                    {negativeCount > 0 && (
+                      <span className={`inline-flex items-center justify-center rounded-full px-1.5 min-w-[1.25rem] text-[10px] font-bold ${
+                        chipNegative ? "bg-primary-foreground/20 text-primary-foreground" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                      }`}>
+                        {negativeCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
             </CardHeader>

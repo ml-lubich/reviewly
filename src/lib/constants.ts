@@ -40,6 +40,10 @@ export const STARTER_TIER_BUSINESSES = 1;
 export const PROFESSIONAL_TIER_BUSINESSES = 5;
 export const ENTERPRISE_TIER_BUSINESSES = Infinity;
 
+// Search
+export const SEARCH_DEBOUNCE_MS = 300;
+export const NEGATIVE_RATING_MAX = 2;
+
 // Pagination
 export const REVIEWS_PER_PAGE = 10;
 
