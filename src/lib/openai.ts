@@ -19,13 +19,13 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
-function classifySentiment(rating: number): "positive" | "neutral" | "negative" {
+export function classifySentiment(rating: number): "positive" | "neutral" | "negative" {
   if (rating >= POSITIVE_RATING_THRESHOLD) return "positive";
   if (rating === NEUTRAL_RATING) return "neutral";
   return "negative";
 }
 
-function buildReplyPrompt(
+export function buildReplyPrompt(
   review: { review_text: string | null; reviewer_name: string; rating: number },
   business: { tone_description: string; example_responses: string[]; negative_review_strategy: string }
 ): string {
