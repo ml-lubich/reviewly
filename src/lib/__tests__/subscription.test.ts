@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { canAddBusiness, canUseAutoReply, getUserTier } from "../subscription";
-import type { SubscriptionTier } from "../types";
 
 // Mock stripe module to avoid env var access
 vi.mock("../stripe", () => ({

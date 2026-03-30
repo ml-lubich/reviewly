@@ -81,10 +81,8 @@ const STATUS_CONFIG = {
 
 function ReviewCard({
   review,
-  business,
 }: {
   review: Review;
-  business: Business;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingReply, setEditingReply] = useState(false);
@@ -160,7 +158,7 @@ function ReviewCard({
                 publishing={publishing}
                 onEdit={() => {
                   setEditingReply(true);
-                  setReplyText(review.reply!.final_text || "");
+                  setReplyText(review.reply?.final_text || "");
                 }}
                 onPublish={handlePublishReply}
               />
@@ -202,7 +200,6 @@ function ReviewCard({
             {expanded && !review.reply && (
               <GenerateReplySection
                 review={review}
-                business={business}
                 onClose={() => setExpanded(false)}
                 onPublish={(text) => {
                   setReplyText(text);
@@ -259,12 +256,10 @@ function ReplyDisplay({
 
 function GenerateReplySection({
   review,
-  business,
   onClose,
   onPublish,
 }: {
   review: Review;
-  business: Business;
   onClose: () => void;
   onPublish: (text: string) => void;
 }) {
@@ -834,7 +829,7 @@ export default function DashboardPage() {
               </Card>
             ) : (
               paginatedReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} business={business} />
+                <ReviewCard key={review.id} review={review} />
               ))
             )}
           </div>

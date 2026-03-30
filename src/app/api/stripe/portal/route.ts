@@ -5,7 +5,7 @@ import { getAppUrl } from "@/lib/env";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { RATE_LIMIT_STRIPE_PORTAL } from "@/lib/constants";
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 

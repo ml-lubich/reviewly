@@ -5,7 +5,7 @@ import { getAppUrl } from "@/lib/env";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { RATE_LIMIT_GOOGLE_CONNECT } from "@/lib/constants";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   // Check if Google OAuth is configured before attempting
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     return NextResponse.json(

@@ -102,7 +102,7 @@ function calculateResponseTimes(
   const publishedReplies = new Map(
     replies
       .filter((r) => r.published_at)
-      .map((r) => [r.review_id, r.published_at!])
+      .map((r) => [r.review_id, r.published_at as string])
   );
 
   const responseTimes: number[] = [];

@@ -23,7 +23,6 @@ import {
   ExternalLink,
   Users,
   TrendingUp,
-  Building2,
 } from "lucide-react";
 
 const NAV_LINKS = [
