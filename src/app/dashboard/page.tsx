@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,11 +88,9 @@ function ReviewCard({
   const [published, setPublished] = useState(review.reply?.status === "published");
   const [publishing, setPublishing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handlePublishReply() {
     setPublishing(true);
-    setError(null);
     try {
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
@@ -100,15 +99,15 @@ function ReviewCard({
       });
       if (!res.ok) throw new Error("Failed to publish reply");
       setPublished(true);
+      toast.success("Reply published successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to publish");
+      toast.error(err instanceof Error ? err.message : "Failed to publish");
     }
     setPublishing(false);
   }
 
   async function handleSaveReply() {
     setSaving(true);
-    setError(null);
     try {
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
@@ -117,8 +116,9 @@ function ReviewCard({
       });
       if (!res.ok) throw new Error("Failed to save reply");
       setEditingReply(false);
+      toast.success("Reply saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      toast.error(err instanceof Error ? err.message : "Failed to save");
     }
     setSaving(false);
   }
@@ -148,13 +148,6 @@ function ReviewCard({
             <p className="text-sm text-muted-foreground leading-relaxed">
               {review.review_text}
             </p>
-
-            {error && (
-              <div className="mt-2 text-sm text-destructive flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                {error}
-              </div>
-            )}
 
             {review.reply && !editingReply && (
               <ReplyDisplay
@@ -274,11 +267,9 @@ function GenerateReplySection({
   const [generating, setGenerating] = useState(false);
   const [generatedText, setGeneratedText] = useState("");
   const [editText, setEditText] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
     setGenerating(true);
-    setError(null);
     try {
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
@@ -292,13 +283,12 @@ function GenerateReplySection({
         setEditText(data.reply.generated_text);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate reply");
+      toast.error(err instanceof Error ? err.message : "Failed to generate reply");
     }
     setGenerating(false);
   }
 
   async function handlePublish(text: string) {
-    setError(null);
     try {
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
@@ -307,8 +297,9 @@ function GenerateReplySection({
       });
       if (!res.ok) throw new Error("Failed to publish reply");
       onPublish(text);
+      toast.success("Reply published successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to publish");
+      toast.error(err instanceof Error ? err.message : "Failed to publish");
     }
   }
 
@@ -323,13 +314,6 @@ function GenerateReplySection({
           <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
         </button>
       </div>
-
-      {error && (
-        <div className="mb-3 text-sm text-destructive flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" />
-          {error}
-        </div>
-      )}
 
       {!generatedText && !generating && (
         <div className="space-y-3">
@@ -467,7 +451,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<BusinessStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [syncError, setSyncError] = useState<string | null>(null);
   const [businessError, setBusinessError] = useState<string | null>(null);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -518,7 +501,6 @@ export default function DashboardPage() {
   async function syncReviews() {
     if (!business) return;
     setSyncing(true);
-    setSyncError(null);
     try {
       const res = await fetch("/api/reviews/sync", {
         method: "POST",
@@ -532,8 +514,9 @@ export default function DashboardPage() {
       setReviews(mappedReviews);
       setStats(calculateBusinessStats(mappedReviews));
       setLastSyncedAt(new Date().toISOString());
+      toast.success("Reviews synced successfully");
     } catch (err) {
-      setSyncError(err instanceof Error ? err.message : "Sync failed");
+      toast.error(err instanceof Error ? err.message : "Sync failed");
     }
     setSyncing(false);
   }
@@ -654,21 +637,6 @@ export default function DashboardPage() {
           {syncing ? "Syncing..." : "Sync Reviews"}
         </Button>
       </div>
-
-      {syncError && (
-        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {syncError}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto text-destructive hover:text-destructive"
-            onClick={syncReviews}
-          >
-            Retry
-          </Button>
-        </div>
-      )}
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Building2} label="Businesses" value={businesses.length.toString()} />

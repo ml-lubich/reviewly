@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,12 +38,10 @@ export default function SettingsPage() {
   const [autoReply, setAutoReply] = useState(false);
   const [examples, setExamples] = useState<string[]>([]);
   const [newExample, setNewExample] = useState("");
-  const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [negativeStrategy, setNegativeStrategy] = useState("apologize_resolve");
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadBusiness() {
@@ -84,11 +83,10 @@ export default function SettingsPage() {
         })
         .eq("id", businessId);
 
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      toast.success("Settings saved successfully");
     } catch (err) {
       console.error("Failed to save settings:", err);
-      setSaveError("Failed to save settings. Please try again.");
+      toast.error("Failed to save settings. Please try again.");
     }
     setSaving(false);
   }
@@ -320,16 +318,8 @@ export default function SettingsPage() {
       <div className="flex items-center gap-3">
         <Button onClick={handleSave} disabled={saving} className="shadow-lg shadow-primary/20">
           {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          {saved ? "Saved!" : saving ? "Saving..." : "Save Settings"}
+          {saving ? "Saving..." : "Save Settings"}
         </Button>
-        {saved && (
-          <span className="text-sm text-emerald-600 dark:text-emerald-400">
-            Settings saved successfully
-          </span>
-        )}
-        {saveError && (
-          <span className="text-sm text-destructive">{saveError}</span>
-        )}
       </div>
     </div>
   );
