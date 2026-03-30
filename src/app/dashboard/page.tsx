@@ -30,8 +30,10 @@ import {
   ChevronRight,
   Search,
   Download,
+  CheckSquare,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { createClient } from "@/lib/supabase";
 import { calculateBusinessStats, sortReviews } from "@/lib/data";
 import { REVIEWS_PER_PAGE, SEARCH_DEBOUNCE_MS, NEGATIVE_RATING_MAX, REVIEW_SORT_OPTIONS, SORT_NEWEST } from "@/lib/constants";
@@ -81,8 +83,12 @@ const STATUS_CONFIG = {
 
 function ReviewCard({
   review,
+  selected,
+  onToggleSelect,
 }: {
   review: Review;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingReply, setEditingReply] = useState(false);
@@ -128,9 +134,15 @@ function ReviewCard({
   const status = STATUS_CONFIG[review.status];
 
   return (
-    <Card className={`transition-all ${expanded ? "ring-1 ring-primary/20" : "hover:border-border"}`}>
+    <Card className={`transition-all ${selected ? "ring-1 ring-primary/30 bg-primary/[0.02]" : ""} ${expanded ? "ring-1 ring-primary/20" : "hover:border-border"}`}>
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
+          <div className="flex items-center pt-1">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => onToggleSelect(review.id)}
+            />
+          </div>
           <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-violet-500/20 text-sm font-semibold text-primary">
             {review.reviewer_name[0]}
           </div>
@@ -438,6 +450,51 @@ function InlineError({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
+function BulkActionToolbar({
+  selectedCount,
+  onDeselectAll,
+  onBulkGenerate,
+  onBulkPublish,
+  bulkLoading,
+}: {
+  selectedCount: number;
+  onDeselectAll: () => void;
+  onBulkGenerate: () => void;
+  onBulkPublish: () => void;
+  bulkLoading: boolean;
+}) {
+  if (selectedCount === 0) return null;
+
+  return (
+    <div className="sticky bottom-4 z-50">
+      <div className="mx-auto max-w-3xl">
+        <div className="flex items-center justify-between gap-4 rounded-xl border bg-background/95 backdrop-blur-sm shadow-lg px-4 py-3">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">
+              {selectedCount} review{selectedCount === 1 ? "" : "s"} selected
+            </span>
+            <Button variant="ghost" size="sm" onClick={onDeselectAll}>
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={onBulkGenerate} disabled={bulkLoading}>
+              {bulkLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+              Generate Replies
+            </Button>
+            <Button size="sm" onClick={onBulkPublish} disabled={bulkLoading}>
+              {bulkLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+              Publish Replies
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const searchParams = useSearchParams();
   const selectedBusinessId = searchParams.get("business");
@@ -460,6 +517,86 @@ export default function DashboardPage() {
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setSelectedIds(new Set(paginatedReviews.map((r) => r.id)));
+  }
+
+  function deselectAll() {
+    setSelectedIds(new Set());
+  }
+
+  async function handleBulkGenerate() {
+    const pendingSelected = filteredReviews.filter(
+      (r) => selectedIds.has(r.id) && r.status === "pending" && !r.reply
+    );
+    if (pendingSelected.length === 0) {
+      toast.error("No pending reviews without replies selected");
+      return;
+    }
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/reviews/bulk-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reviewIds: pendingSelected.map((r) => r.id),
+          action: "generate",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bulk generate failed");
+      toast.success(`Generated ${data.succeeded} replies${data.failed > 0 ? `, ${data.failed} failed` : ""}`);
+      if (business) await loadReviews(business);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk generate failed");
+    }
+    setBulkLoading(false);
+  }
+
+  async function handleBulkPublish() {
+    const withDrafts = filteredReviews.filter(
+      (r) => selectedIds.has(r.id) && r.reply && r.reply.status !== "published"
+    );
+    if (withDrafts.length === 0) {
+      toast.error("No unpublished replies selected");
+      return;
+    }
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/reviews/bulk-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reviewIds: withDrafts.map((r) => r.id),
+          action: "publish",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bulk publish failed");
+      toast.success(`Published ${data.succeeded} replies${data.failed > 0 ? `, ${data.failed} failed` : ""}`);
+      if (business) await loadReviews(business);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk publish failed");
+    }
+    setBulkLoading(false);
+  }
 
   const loadReviews = useCallback(async (biz: Business) => {
     setReviewsError(null);
@@ -597,6 +734,7 @@ export default function DashboardPage() {
     setDebouncedSearch("");
     setChipNeedsReply(false);
     setChipNegative(false);
+    setSelectedIds(new Set());
   }, [selectedBusinessId]);
 
   useEffect(() => {
@@ -819,6 +957,27 @@ export default function DashboardPage() {
             </CardHeader>
           </Card>
 
+          {paginatedReviews.length > 0 && (
+            <div className="flex items-center gap-3 px-1">
+              <Checkbox
+                checked={paginatedReviews.length > 0 && paginatedReviews.every((r) => selectedIds.has(r.id))}
+                indeterminate={paginatedReviews.some((r) => selectedIds.has(r.id)) && !paginatedReviews.every((r) => selectedIds.has(r.id))}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    selectAllVisible();
+                  } else {
+                    deselectAll();
+                  }
+                }}
+              />
+              <span className="text-sm text-muted-foreground">
+                {selectedIds.size > 0
+                  ? `${selectedIds.size} selected`
+                  : "Select all"}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-3">
             {filteredReviews.length === 0 ? (
               <Card>
@@ -829,10 +988,23 @@ export default function DashboardPage() {
               </Card>
             ) : (
               paginatedReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  selected={selectedIds.has(review.id)}
+                  onToggleSelect={toggleSelect}
+                />
               ))
             )}
           </div>
+
+          <BulkActionToolbar
+            selectedCount={selectedIds.size}
+            onDeselectAll={deselectAll}
+            onBulkGenerate={handleBulkGenerate}
+            onBulkPublish={handleBulkPublish}
+            bulkLoading={bulkLoading}
+          />
 
           {filteredReviews.length > REVIEWS_PER_PAGE && (
             <div className="flex items-center justify-between">
