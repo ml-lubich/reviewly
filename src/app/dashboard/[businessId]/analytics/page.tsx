@@ -12,7 +12,15 @@ import {
   Star,
   BarChart3,
   Loader2,
+  Timer,
 } from "lucide-react";
+import { formatResponseTime } from "@/lib/utils";
+import {
+  RESPONSE_TIME_1H_MS,
+  RESPONSE_TIME_6H_MS,
+  RESPONSE_TIME_24H_MS,
+  RESPONSE_TIME_3D_MS,
+} from "@/lib/constants";
 
 function StatCard({
   icon: Icon,
@@ -83,6 +91,52 @@ interface AnalyticsData {
   ratingDistribution: { label: string; value: number }[];
   monthlyReviews: { label: string; value: number }[];
   sentiment: { positive: number; neutral: number; negative: number };
+  avgResponseTimeMs: number | null;
+  responseTimeDistribution: { label: string; value: number }[];
+}
+
+function calculateResponseTimes(
+  reviews: { id: string; review_date: string }[],
+  replies: { review_id: string; published_at: string | null }[]
+): { avgMs: number | null; distribution: { label: string; value: number }[] } {
+  const publishedReplies = new Map(
+    replies
+      .filter((r) => r.published_at)
+      .map((r) => [r.review_id, r.published_at!])
+  );
+
+  const responseTimes: number[] = [];
+  for (const review of reviews) {
+    const publishedAt = publishedReplies.get(review.id);
+    if (!publishedAt) continue;
+    const diffMs = new Date(publishedAt).getTime() - new Date(review.review_date).getTime();
+    if (diffMs >= 0) responseTimes.push(diffMs);
+  }
+
+  if (responseTimes.length === 0) {
+    return {
+      avgMs: null,
+      distribution: [
+        { label: "< 1h", value: 0 },
+        { label: "1-6h", value: 0 },
+        { label: "6-24h", value: 0 },
+        { label: "1-3d", value: 0 },
+        { label: "3d+", value: 0 },
+      ],
+    };
+  }
+
+  const avgMs = responseTimes.reduce((sum, t) => sum + t, 0) / responseTimes.length;
+
+  const distribution = [
+    { label: "< 1h", value: responseTimes.filter((t) => t < RESPONSE_TIME_1H_MS).length },
+    { label: "1-6h", value: responseTimes.filter((t) => t >= RESPONSE_TIME_1H_MS && t < RESPONSE_TIME_6H_MS).length },
+    { label: "6-24h", value: responseTimes.filter((t) => t >= RESPONSE_TIME_6H_MS && t < RESPONSE_TIME_24H_MS).length },
+    { label: "1-3d", value: responseTimes.filter((t) => t >= RESPONSE_TIME_24H_MS && t < RESPONSE_TIME_3D_MS).length },
+    { label: "3d+", value: responseTimes.filter((t) => t >= RESPONSE_TIME_3D_MS).length },
+  ];
+
+  return { avgMs, distribution };
 }
 
 export default function AnalyticsPage() {
@@ -96,16 +150,21 @@ export default function AnalyticsPage() {
     async function loadAnalytics() {
       try {
         const supabase = createClient();
-        const { data: reviews } = await supabase
+        const { data: reviewsWithReplies } = await supabase
           .from("reviews")
-          .select("rating, status, review_date")
+          .select("id, rating, status, review_date, replies(review_id, published_at)")
           .eq("business_id", businessId);
 
-        if (!reviews || reviews.length === 0) {
+        if (!reviewsWithReplies || reviewsWithReplies.length === 0) {
           setData(null);
           setLoading(false);
           return;
         }
+
+        const reviews = reviewsWithReplies;
+        const replies = reviewsWithReplies.flatMap((r) =>
+          (r.replies || []).map((rep: { review_id: string; published_at: string | null }) => rep)
+        );
 
         const total = reviews.length;
         const avgRating = Math.round((reviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10;
@@ -134,6 +193,8 @@ export default function AnalyticsPage() {
         const neutral = reviews.filter((r) => r.rating === 3).length;
         const negative = reviews.filter((r) => r.rating <= 2).length;
 
+        const { avgMs, distribution } = calculateResponseTimes(reviews, replies);
+
         setData({
           avgRating,
           replyRate,
@@ -145,6 +206,8 @@ export default function AnalyticsPage() {
             neutral: Math.round((neutral / total) * 100),
             negative: Math.round((negative / total) * 100),
           },
+          avgResponseTimeMs: avgMs,
+          responseTimeDistribution: distribution,
         });
       } catch (err) {
         console.error("Failed to load analytics:", err);
@@ -186,6 +249,7 @@ export default function AnalyticsPage() {
   }
 
   const ratingColors = ["bg-emerald-500", "bg-emerald-400", "bg-amber-400", "bg-orange-400", "bg-red-400"];
+  const responseTimeColors = ["bg-emerald-500", "bg-emerald-400", "bg-amber-400", "bg-orange-400", "bg-red-400"];
   const sentimentData = [
     { label: "Positive", percentage: data.sentiment.positive, color: "bg-emerald-500" },
     { label: "Neutral", percentage: data.sentiment.neutral, color: "bg-amber-400" },
@@ -201,11 +265,16 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={Star} label="Average Rating" value={data.avgRating.toString()} />
         <StatCard icon={MessageSquareText} label="Reply Rate" value={`${data.replyRate}%`} />
         <StatCard icon={Clock} label="Total Reviews" value={data.totalReviews.toString()} />
         <StatCard icon={BarChart3} label="Monthly Reviews" value={data.monthlyReviews[5]?.value.toString() || "0"} />
+        <StatCard
+          icon={Timer}
+          label="Avg Response Time"
+          value={data.avgResponseTimeMs !== null ? formatResponseTime(data.avgResponseTimeMs) : "N/A"}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -261,6 +330,21 @@ export default function AnalyticsPage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Response Time Distribution</CardTitle>
+            <CardDescription>Time between review and published reply</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BarChartSimple
+              data={data.responseTimeDistribution.map((d, i) => ({
+                ...d,
+                color: responseTimeColors[i],
+              }))}
+            />
           </CardContent>
         </Card>
       </div>

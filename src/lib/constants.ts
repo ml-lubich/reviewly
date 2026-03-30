@@ -50,6 +50,12 @@ export const REVIEWS_PER_PAGE = 10;
 // Auto-reply
 export const AUTO_REPLY_BATCH_LIMIT = 10;
 
+// Response time buckets (milliseconds)
+export const RESPONSE_TIME_1H_MS = 3_600_000;
+export const RESPONSE_TIME_6H_MS = 21_600_000;
+export const RESPONSE_TIME_24H_MS = 86_400_000;
+export const RESPONSE_TIME_3D_MS = 259_200_000;
+
 // Rate limiting (requests per window)
 export const RATE_LIMIT_GENERATE_REPLY = { maxRequests: 20, windowMs: 60_000 };
 export const RATE_LIMIT_REVIEWS_SYNC = { maxRequests: 5, windowMs: 60_000 };
