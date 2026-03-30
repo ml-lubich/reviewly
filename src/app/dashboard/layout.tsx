@@ -15,6 +15,7 @@ import {
   Plus,
   ChevronDown,
   Check,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -93,6 +94,7 @@ export default function DashboardLayout({
           { label: "Analytics", href: `/dashboard/${activeBusiness.id}/analytics`, icon: BarChart3 },
         ]
       : []),
+    { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
   ];
 
   return (

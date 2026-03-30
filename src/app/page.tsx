@@ -411,7 +411,6 @@ function Pricing() {
       description: "Try it out, no commitment",
       features: [
         "1 business location",
-        "Up to 10 reviews/month",
         "AI reply generation",
         "Manual approval",
         "Community support",
@@ -419,30 +418,38 @@ function Pricing() {
     },
     {
       name: "Starter",
-      price: "$19",
-      description: "Perfect for a single location",
-      popular: true,
+      price: "$29",
+      description: "For a single location, more features",
       features: [
         "1 business location",
-        "Up to 100 reviews/month",
         "AI reply generation",
-        "Auto-reply mode",
         "Basic analytics",
         "Email support",
       ],
     },
     {
-      name: "Pro",
-      price: "$39",
+      name: "Professional",
+      price: "$79",
       description: "For growing businesses",
+      popular: true,
       features: [
         "Up to 5 locations",
-        "Unlimited reviews",
         "AI reply generation",
         "Auto-reply mode",
         "Advanced analytics",
         "Priority support",
-        "Custom tone per location",
+      ],
+    },
+    {
+      name: "Enterprise",
+      price: "$199",
+      description: "For large organizations",
+      features: [
+        "Unlimited locations",
+        "AI reply generation",
+        "Auto-reply mode",
+        "Advanced analytics",
+        "Priority support",
         "API access",
       ],
     },
@@ -462,7 +469,7 @@ function Pricing() {
             Start free. Upgrade when you&apos;re ready. No hidden fees.
           </p>
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
           {plans.map((plan) => (
             <div
               key={plan.name}
