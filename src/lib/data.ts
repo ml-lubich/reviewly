@@ -6,7 +6,11 @@ import {
   REVIEW_STATUS_MANUALLY_REPLIED,
   POSITIVE_RATING_THRESHOLD,
   NEUTRAL_RATING,
+  SORT_OLDEST,
+  SORT_HIGHEST_RATED,
+  SORT_LOWEST_RATED,
 } from "./constants";
+import type { ReviewSortValue } from "./constants";
 
 export async function getBusinessesForUser(
   supabase: SupabaseClient,
@@ -189,6 +193,23 @@ export async function getSubscriptionForUser(
 
   if (error) return null;
   return data;
+}
+
+export function sortReviews<T extends { rating: number; review_date: string }>(
+  reviews: T[],
+  sortBy: ReviewSortValue
+): T[] {
+  const sorted = [...reviews];
+  switch (sortBy) {
+    case SORT_OLDEST:
+      return sorted.sort((a, b) => new Date(a.review_date).getTime() - new Date(b.review_date).getTime());
+    case SORT_HIGHEST_RATED:
+      return sorted.sort((a, b) => b.rating - a.rating);
+    case SORT_LOWEST_RATED:
+      return sorted.sort((a, b) => a.rating - b.rating);
+    default:
+      return sorted.sort((a, b) => new Date(b.review_date).getTime() - new Date(a.review_date).getTime());
+  }
 }
 
 export async function getAnalyticsData(

@@ -33,8 +33,9 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase";
-import { calculateBusinessStats } from "@/lib/data";
-import { REVIEWS_PER_PAGE, SEARCH_DEBOUNCE_MS, NEGATIVE_RATING_MAX } from "@/lib/constants";
+import { calculateBusinessStats, sortReviews } from "@/lib/data";
+import { REVIEWS_PER_PAGE, SEARCH_DEBOUNCE_MS, NEGATIVE_RATING_MAX, REVIEW_SORT_OPTIONS, SORT_NEWEST } from "@/lib/constants";
+import type { ReviewSortValue } from "@/lib/constants";
 import type { Business, Review, BusinessStats } from "@/lib/types";
 
 function StatCard({
@@ -447,6 +448,7 @@ export default function DashboardPage() {
   const selectedBusinessId = searchParams.get("business");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
+  const [sortBy, setSortBy] = useState<ReviewSortValue>(SORT_NEWEST);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [chipNeedsReply, setChipNeedsReply] = useState(false);
@@ -604,14 +606,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterStatus, filterRating, debouncedSearch, chipNeedsReply, chipNegative]);
+  }, [filterStatus, filterRating, debouncedSearch, chipNeedsReply, chipNegative, sortBy]);
 
   const pendingCount = useMemo(() => reviews.filter((r) => r.status === "pending").length, [reviews]);
   const negativeCount = useMemo(() => reviews.filter((r) => r.rating <= NEGATIVE_RATING_MAX).length, [reviews]);
 
   const filteredReviews = useMemo(() => {
     const query = debouncedSearch.toLowerCase();
-    return reviews.filter((r) => {
+    const filtered = reviews.filter((r) => {
       if (filterStatus !== "all" && r.status !== filterStatus) return false;
       if (filterRating !== "all" && r.rating !== Number(filterRating)) return false;
       if (chipNeedsReply && r.status !== "pending") return false;
@@ -623,7 +625,8 @@ export default function DashboardPage() {
       }
       return true;
     });
-  }, [reviews, filterStatus, filterRating, chipNeedsReply, chipNegative, debouncedSearch]);
+    return sortReviews(filtered, sortBy);
+  }, [reviews, filterStatus, filterRating, chipNeedsReply, chipNegative, debouncedSearch, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredReviews.length / REVIEWS_PER_PAGE));
   const startIndex = (currentPage - 1) * REVIEWS_PER_PAGE;
@@ -752,6 +755,13 @@ export default function DashboardPage() {
                     <option value="3">3 stars</option>
                     <option value="2">2 stars</option>
                     <option value="1">1 star</option>
+                  </Select>
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as ReviewSortValue)}>
+                    {REVIEW_SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </Select>
                 </div>
               </div>

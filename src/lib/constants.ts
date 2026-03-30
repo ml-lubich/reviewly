@@ -56,6 +56,21 @@ export const RESPONSE_TIME_6H_MS = 21_600_000;
 export const RESPONSE_TIME_24H_MS = 86_400_000;
 export const RESPONSE_TIME_3D_MS = 259_200_000;
 
+// Review sort options
+export const SORT_NEWEST = "newest" as const;
+export const SORT_OLDEST = "oldest" as const;
+export const SORT_HIGHEST_RATED = "highest_rated" as const;
+export const SORT_LOWEST_RATED = "lowest_rated" as const;
+
+export const REVIEW_SORT_OPTIONS = [
+  { value: SORT_NEWEST, label: "Newest first" },
+  { value: SORT_OLDEST, label: "Oldest first" },
+  { value: SORT_HIGHEST_RATED, label: "Highest rated" },
+  { value: SORT_LOWEST_RATED, label: "Lowest rated" },
+] as const;
+
+export type ReviewSortValue = typeof REVIEW_SORT_OPTIONS[number]["value"];
+
 // Rate limiting (requests per window)
 export const RATE_LIMIT_GENERATE_REPLY = { maxRequests: 20, windowMs: 60_000 };
 export const RATE_LIMIT_REVIEWS_SYNC = { maxRequests: 5, windowMs: 60_000 };
