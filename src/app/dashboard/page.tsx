@@ -29,6 +29,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase";
@@ -457,6 +458,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<BusinessStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [businessError, setBusinessError] = useState<string | null>(null);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -526,6 +528,25 @@ export default function DashboardPage() {
       toast.error(err instanceof Error ? err.message : "Sync failed");
     }
     setSyncing(false);
+  }
+
+  async function exportCsv() {
+    if (!business) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/reviews/export?businessId=${business.id}`);
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reviews-${business.business_name}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    }
+    setExporting(false);
   }
 
   useEffect(() => {
@@ -675,10 +696,18 @@ export default function DashboardPage() {
             </p>
           )}
         </div>
-        <Button onClick={syncReviews} disabled={syncing} variant="outline" size="sm">
-          <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing..." : "Sync Reviews"}
-        </Button>
+        <div className="flex gap-2">
+          {reviews.length > 0 && (
+            <Button onClick={exportCsv} disabled={exporting} variant="outline" size="sm">
+              <Download className={`h-4 w-4 mr-1 ${exporting ? "animate-pulse" : ""}`} />
+              {exporting ? "Exporting..." : "Export CSV"}
+            </Button>
+          )}
+          <Button onClick={syncReviews} disabled={syncing} variant="outline" size="sm">
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync Reviews"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
