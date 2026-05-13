@@ -1,6 +1,46 @@
 # Reviewly
 
-AI-powered Google Review management for businesses. Automatically respond to reviews in your brand's voice using GPT-4o.
+> AI-powered Google Review management for businesses. Automatically
+> respond to reviews in your brand's voice using GPT-4o.
+
+```mermaid
+flowchart LR
+    OWNER[("👤 business owner")]
+    AUTH{{"🔐 Supabase Auth<br/>+ Google OAuth"}}
+    GBP[("📍 Google Business Profile<br/>API")]
+    SYNC["🔁 sync worker<br/>cron · pull reviews"]
+    DB[("🗄 Supabase<br/>Postgres + Realtime")]
+    DASH["📊 dashboard<br/>reviews · analytics"]
+    AI["🤖 GPT-4o<br/>brand-voice reply"]
+    PUB["📤 auto-publish<br/>reply to GBP"]
+    CUST[(("⭐ customer<br/>sees reply"))]
+
+    OWNER --> AUTH --> DASH
+    SYNC --> GBP --> DB
+    DB --> DASH
+    DASH --> AI --> PUB --> GBP --> CUST
+    DB -.realtime.-> DASH
+
+    classDef io fill:#0e1116,stroke:#2f81f7,stroke-width:1.5px,color:#e6edf3;
+    classDef tool fill:#161b22,stroke:#3fb950,stroke-width:1.5px,color:#e6edf3;
+    classDef brain fill:#161b22,stroke:#d29922,stroke-width:1.5px,color:#e6edf3;
+    classDef out fill:#0e1116,stroke:#a371f7,stroke-width:1.5px,color:#e6edf3;
+    class OWNER,GBP,DB,CUST io;
+    class SYNC,AI,DASH,PUB tool;
+    class AUTH brain;
+```
+
+## Table of contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Deploy to Vercel](#deploy-to-vercel)
+- [Deploy with Docker](#deploy-with-docker)
+- [API Routes](#api-routes)
+- [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [License](#license)
 
 ## Features
 
