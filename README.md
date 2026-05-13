@@ -34,6 +34,8 @@ flowchart LR
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
+- [Auto-reply pipeline (sequence)](#auto-reply-pipeline-sequence)
+- [Review state](#review-state)
 - [Getting Started](#getting-started)
 - [Deploy to Vercel](#deploy-to-vercel)
 - [Deploy with Docker](#deploy-with-docker)
@@ -41,6 +43,42 @@ flowchart LR
 - [Environment Variables](#environment-variables)
 - [Project Structure](#project-structure)
 - [License](#license)
+
+## Auto-reply pipeline (sequence)
+
+```mermaid
+sequenceDiagram
+    participant CRON as cron worker
+    participant GBP as Google Business Profile
+    participant DB as Supabase
+    participant AI as GPT-4o
+    participant DASH as dashboard (realtime)
+    participant CUST as customer
+
+    CRON->>GBP: list locations + reviews
+    GBP-->>CRON: new reviews
+    CRON->>DB: upsert reviews
+    DB-->>DASH: realtime push
+    CRON->>AI: prompt(review, brand voice)
+    AI-->>CRON: drafted reply
+    CRON->>GBP: publish reply
+    GBP-->>CUST: reply visible
+    CRON->>DB: store reply + metrics
+```
+
+## Review state
+
+```mermaid
+stateDiagram-v2
+    [*] --> NEW: synced from GBP
+    NEW --> AI_DRAFT: GPT-4o reply generated
+    AI_DRAFT --> NEEDS_REVIEW: low confidence / negative
+    AI_DRAFT --> AUTO_PUBLISH: high confidence
+    NEEDS_REVIEW --> APPROVED: owner edits + approves
+    APPROVED --> AUTO_PUBLISH
+    AUTO_PUBLISH --> PUBLISHED: posted to GBP
+    PUBLISHED --> [*]
+```
 
 ## Features
 
