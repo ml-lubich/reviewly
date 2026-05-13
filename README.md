@@ -13,7 +13,7 @@ flowchart LR
     DASH["📊 dashboard<br/>reviews · analytics"]
     AI["🤖 GPT-4o<br/>brand-voice reply"]
     PUB["📤 auto-publish<br/>reply to GBP"]
-    CUST[(("⭐ customer<br/>sees reply"))]
+    CUST(("⭐ customer<br/>sees reply"))
 
     OWNER --> AUTH --> DASH
     SYNC --> GBP --> DB
