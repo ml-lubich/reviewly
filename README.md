@@ -43,6 +43,7 @@ flowchart LR
 - [Environment Variables](#environment-variables)
 - [Project Structure](#project-structure)
 - [License](#license)
+- [🗺️ Repository map](#️-repository-map)
 
 ## Auto-reply pipeline (sequence)
 
@@ -251,3 +252,31 @@ vercel.json                                 # Vercel cron config
 ## License
 
 MIT
+
+
+## 🗺️ Repository map
+
+Top-level layout of `reviewly` rendered as a Mermaid mindmap (auto-generated from the on-disk tree).
+
+```mermaid
+mindmap
+  root((reviewly))
+    docs/
+      research
+    scripts/
+      start.sh
+    src/
+      app
+      components
+      lib
+      proxy.ts
+    supabase/
+      migrations
+      schema.sql
+    files
+      Dockerfile
+      README.md
+      next.config.ts
+      package.json
+      tsconfig.json
+```
